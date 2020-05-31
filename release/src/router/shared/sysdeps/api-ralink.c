@@ -275,7 +275,11 @@ unsigned char A_BAND_REGION_6_CHANNEL_LIST[]={36, 40, 44, 48, 132, 136, 140, 149
 #else
 unsigned char A_BAND_REGION_6_CHANNEL_LIST[]={36, 40, 44, 48};
 #endif
+#if defined(RTAC85U)
+unsigned char A_BAND_REGION_7_CHANNEL_LIST[]={36, 40, 44, 48, 52, 56, 60, 64, 149, 153, 157, 161, 165}; // Bug in China. Fix me.
+#else
 unsigned char A_BAND_REGION_7_CHANNEL_LIST[]={36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 149, 153, 157, 161, 165, 169, 173};
+#endif
 unsigned char A_BAND_REGION_8_CHANNEL_LIST[]={52, 56, 60, 64};
 #ifdef RTCONFIG_LOCALE2012
 unsigned char A_BAND_REGION_9_CHANNEL_LIST[]={36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132};
@@ -344,7 +348,7 @@ typedef struct CountryCodeToCountryRegion {
 
 COUNTRY_CODE_TO_COUNTRY_REGION allCountry[] = {
 	/* {Country Number, ISO Name, Country Name, Support 11A, 11A Country Region, Support 11G, 11G Country Region} */
-	{"DB", A_BAND_REGION_7, G_BAND_REGION_5},
+	{"DB", A_BAND_REGION_7, G_BAND_REGION_1}, // Bug in China. Fix me.
 	{"AL", A_BAND_REGION_0, G_BAND_REGION_1},
 	{"DZ", A_BAND_REGION_0, G_BAND_REGION_1},
 #ifdef RTCONFIG_LOCALE2012
