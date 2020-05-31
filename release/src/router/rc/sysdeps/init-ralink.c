@@ -1214,6 +1214,7 @@ void init_syspara(void)
 	else
 		nvram_set("wl_mssid", "1");
 
+#if 0
 #if defined(RTN14U) || defined(RTN11P) || defined(RTN300) || defined(RTN11P_B1) || defined(RTN800HP)// single band
 	nvram_set("et0macaddr", macaddr);
 	nvram_set("et1macaddr", macaddr);
@@ -1249,7 +1250,21 @@ void init_syspara(void)
 				FWrite(ea, OFFSET_MAC_GMAC2, 6);
 		}
 	}
+#else
+	if (FRead(dst, OFFSET_MAC_GMAC0, bytes)<0)
+		dbg("READ MAC address GMAC0: Out of scope\n");
+	else {
+		ether_etoa(buffer, macaddr);
+		nvram_set("et0macaddr", macaddr);
+	}
 
+	if (FRead(dst, OFFSET_MAC_GMAC2, bytes)<0)
+		dbg("READ MAC address GMAC2: Out of scope\n");
+	else {
+		ether_etoa(buffer, macaddr2);
+		nvram_set("et1macaddr", macaddr2);
+	}
+#endif
 	{
 #ifdef RTCONFIG_ODMPID
 		char modelname[16];
