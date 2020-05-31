@@ -3774,16 +3774,16 @@ int init_nvram(void)
 		wl_ifaces[WL_5G_BAND] = "rai0";
 		set_basic_ifname_vars("eth3", "vlan1", wl_ifaces, "usb", "vlan1", NULL, "vlan3", NULL, 0);
 
-		nvram_set_int("btn_rst_gpio",  16|GPIO_ACTIVE_LOW);
-		nvram_set_int("btn_wps_gpio",  18|GPIO_ACTIVE_LOW);
+		nvram_set_int("btn_rst_gpio",  18|GPIO_ACTIVE_LOW);
+//		nvram_set_int("btn_wps_gpio",  18|GPIO_ACTIVE_LOW);
 //		nvram_set_int("btn_wltog_gpio",13|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_usb_gpio", 15|GPIO_ACTIVE_LOW);
+//		nvram_set_int("led_usb_gpio", 15|GPIO_ACTIVE_LOW);
 		nvram_set_int("led_lan_gpio", 14|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_wan_gpio",  13|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_pwr_gpio",  6|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_wps_gpio",  12|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_5g_gpio", 7|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_2g_gpio", 4|GPIO_ACTIVE_LOW);
+		nvram_set_int("led_wan_gpio", 13|GPIO_ACTIVE_LOW);
+		nvram_set_int("led_pwr_gpio",  8|GPIO_ACTIVE_LOW);
+//		nvram_set_int("led_wps_gpio",  12|GPIO_ACTIVE_LOW);
+//		nvram_set_int("led_5g_gpio", 7|GPIO_ACTIVE_LOW);
+//		nvram_set_int("led_2g_gpio", 4|GPIO_ACTIVE_LOW);
 //		nvram_set_int("led_all_gpio", 10|GPIO_ACTIVE_LOW);
 
 		eval("rtkswitch", "11");
@@ -3793,7 +3793,7 @@ int init_nvram(void)
 		config_swports_bled("led_lan_gpio", 0);
 		config_netdev_bled("led_2g_gpio", "ra0");
 		config_netdev_bled("led_5g_gpio", "rai0");
-		config_usbbus_bled("led_usb_gpio", "1 2");
+//		config_usbbus_bled("led_usb_gpio", "1 2");
 
 		nvram_set("ehci_ports", "1-1");
 		nvram_set("ohci_ports", "2-1");
@@ -3801,15 +3801,15 @@ int init_nvram(void)
 
 		if (nvram_get("wl_mssid") && nvram_match("wl_mssid", "1"))
 			add_rc_support("mssid");
-		add_rc_support("2.4G 5G update usbX1");
+		add_rc_support("2.4G 5G");
 		add_rc_support("rawifi");
 		add_rc_support("switchctrl");
 		add_rc_support("manual_stb");
 		add_rc_support("11AC");
 		//add_rc_support("pwrctrl");
 		// the following values is model dep. so move it from default.c to here
-		nvram_set("wl0_HT_TxStream", "4");
-		nvram_set("wl0_HT_RxStream", "4");
+		nvram_set("wl0_HT_TxStream", "2");
+		nvram_set("wl0_HT_RxStream", "2");
 		nvram_set("wl1_HT_TxStream", "4");
 		nvram_set("wl1_HT_RxStream", "4");
 #if defined(RTAC65U)

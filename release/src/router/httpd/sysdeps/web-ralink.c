@@ -286,7 +286,7 @@ char* GetBW(int BW)
 		case BW_40:
 			return "40M";
 
-#if defined(RTAC52U) || defined(RTAC51U) || defined(RTN54U) || defined(RTAC1200HP) || defined(RTAC54U) || defined(RTAC1200) || defined(RTAC1200GA1) || defined(RTAC1200GU)
+#if defined(RTAC52U) || defined(RTAC51U) || defined(RTN54U) || defined(RTAC1200HP) || defined(RTAC54U) || defined(RTAC1200) || defined(RTAC1200GA1) || defined(RTAC1200GU) || defined(RTAC85U)
 		case BW_80:
 			return "80M";
 #endif
@@ -311,7 +311,7 @@ char* GetPhyMode(int Mode)
 		case MODE_HTGREENFIELD:
 			return "GREEN";
 
-#if defined(RTAC52U) || defined(RTAC51U)  || defined(RTN54U) || defined(RTAC1200HP) || defined(RTAC54U) || defined(RTAC1200)  || defined(RTAC1200GA1) || defined(RTAC1200GU)
+#if defined(RTAC52U) || defined(RTAC51U)  || defined(RTN54U) || defined(RTAC1200HP) || defined(RTAC54U) || defined(RTAC1200)  || defined(RTAC1200GA1) || defined(RTAC1200GU) || defined(RTAC85U)
 		case MODE_VHT:
 			return "VHT";
 #endif
@@ -435,7 +435,7 @@ wl_status(int eid, webs_t wp, int argc, char_t **argv, int unit)
 	snprintf(prefix, sizeof(prefix), "wl%d_", unit);
 	ifname = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
 
-#if 0
+#if 1
 	if (nvram_match(strcat_r(prefix, "radio", tmp), "0"))
 	{
 		ret+=websWrite(wp, "%s radio is disabled\n",

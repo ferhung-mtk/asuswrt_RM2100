@@ -922,106 +922,19 @@ switch_exist(void)
 
 void init_wl(void)
 {
-	if (!module_loaded("rt2860v2_ap"))
-		modprobe("rt2860v2_ap");
-#if defined (RTCONFIG_WLMODULE_RT3090_AP)
-	if (!module_loaded("RTPCI_ap"))
-	{
-		modprobe("RTPCI_ap");
-	}
-#endif
-#if defined (RTCONFIG_WLMODULE_RT3352_INIC_MII)
-	if (!module_loaded("iNIC_mii"))
-		modprobe("iNIC_mii", "mode=ap", "bridge=1", "miimaster=eth2", "syncmiimac=0");	// set iNIC mac address from eeprom need insmod with "syncmiimac=0"
-#endif
-#if defined (RTCONFIG_WLMODULE_MT7610_AP)
-	if (!module_loaded("MT7610_ap"))
-		modprobe("MT7610_ap");
-#endif
-
-#if defined (RTCONFIG_WLMODULE_MT7628_AP)
-	if (!module_loaded("mt_wifi_7628"))
-		modprobe("mt_wifi_7628");
-#endif
-
-#if defined (RTCONFIG_WLMODULE_RLT_WIFI)
-	if (!module_loaded("rlt_wifi"))
-	{   
-		modprobe("rlt_wifi");
-	}
-#endif
-#if defined (RTCONFIG_WLMODULE_MT7603E_AP)
-#if defined(RTAC1200GA1) || defined(RTAC1200GU)
 	if (!module_loaded("mt_wifi"))
 		modprobe("mt_wifi");
-#else
-	if (!module_loaded("rlt_wifi_7603e"))
-		modprobe("rlt_wifi_7603e");
-#endif
-#endif
-
-#if defined (RTCONFIG_WLMODULE_MT7615E_AP)
-	if (!module_loaded("mt_wifi_7615E"))
-		modprobe("mt_wifi_7615E");
-#endif
+	if (!module_loaded("rlt_wifi"))
+		modprobe("rlt_wifi");
 	sleep(1);
 }
 
 void fini_wl(void)
 {
-	if (module_loaded("hw_nat")) {
-#if defined (RTCONFIG_WLMODULE_MT7615E_AP)
-		doSystem("iwpriv %s set hw_nat_register=%d", get_wifname(0), 0);
-#ifdef RTCONFIG_HAS_5G
-		doSystem("iwpriv %s set hw_nat_register=%d", get_wifname(1), 0);
-#endif
-#endif
-		modprobe_r("hw_nat");
-	}
-
-#if defined (RTCONFIG_WLMODULE_MT7610_AP)
-	if (module_loaded("MT7610_ap"))
-		modprobe_r("MT7610_ap");
-#endif
-#if defined (RTCONFIG_WLMODULE_MT7628_AP)
-	if (module_loaded("mt_wifi_7628"))
-		modprobe_r("mt_wifi_7628");
-#endif
-#if defined (RTCONFIG_WLMODULE_RLT_WIFI)
 	if (module_loaded("rlt_wifi"))
-	{   
 		modprobe_r("rlt_wifi");
-#if defined(RTAC1200HP)
-		//remove wifi driver, 5G wifi gpio led turn off 
-		sleep(1);	
-		led_onoff(1); 
-#endif
-	}
-#endif
-#if defined (RTCONFIG_WLMODULE_MT7603E_AP)
-#if defined(RTAC1200GA1) || defined(RTAC1200GU)
 	if (module_loaded("mt_wifi"))
 		modprobe_r("mt_wifi");
-#else
-	if (module_loaded("rlt_wifi_7603e"))
-		modprobe_r("rlt_wifi_7603e");
-#endif
-#endif
-#if defined (RTCONFIG_WLMODULE_RT3352_INIC_MII)
-	if (module_loaded("iNIC_mii"))
-		modprobe_r("iNIC_mii");
-#endif
-
-#if defined (RTCONFIG_WLMODULE_RT3090_AP)
-	if (module_loaded("RTPCI_ap"))
-	{
-		modprobe_r("RTPCI_ap");
-	}
-#endif
-
-	if (module_loaded("rt2860v2_ap"))
-		modprobe_r("rt2860v2_ap");
-
 }
 
 
