@@ -1159,55 +1159,7 @@ VOID AutoChannelSelCheck(RTMP_ADAPTER *pAd)
  */
 UCHAR APAutoSelectChannel(RTMP_ADAPTER *pAd, ChannelSel_Alg Alg)
 {
-	UCHAR ch = 0, i;
-	//UINT32	BusyTime;
-	/* passive scan channel 1-14. collect statistics */
-	
-	/*
-		In the autochannel select case. AP didn't get channel yet.
-		So have no way to determine which Band AP used by channel number.
-	*/
-
-	/* Init some structures before doing AutoChannelSelect() */
-	APAutoChannelInit(pAd);
-
-	if (( Alg == ChannelAlgRandom ) && (pAd->pChannelInfo->IsABand == TRUE))
-	{   /*for Dfs */
-		ch = SelectClearChannelRandom(pAd);
-	}
-	else
-	{
-
-#ifdef MICROWAVE_OVEN_SUPPORT
-		pAd->CommonCfg.MO_Cfg.bEnable = FALSE;
-		AsicMeasureFalseCCA(pAd);
-#endif /* MICROWAVE_OVEN_SUPPORT */
-
-		/*find RSSI in each channel */
-		for (i=0; i<pAd->ChannelListNum; i++)
-		{
-			ULONG wait_time = 200; /* wait for 200 ms at each channel. */
-
-			AsicSwitchChannel(pAd, pAd->ChannelList[i].Channel, TRUE);
-			AsicLockChannel(pAd, pAd->ChannelList[i].Channel);/*do nothing */
-			pAd->ApCfg.current_channel_index = i;
-
-			pAd->ApCfg.AutoChannel_Channel = pAd->ChannelList[i].Channel;
-			
-			/* Read-Clear reset Channel busy time counter */
-			/*BusyTime =*/ AsicGetChBusyCnt(pAd, 0);
-#ifdef AP_QLOAD_SUPPORT
-			/* QLOAD ALARM, ever alarm from QLOAD module */
-			if (QLOAD_DOES_ALARM_OCCUR(pAd))
-				wait_time = 400;
-#endif /* AP_QLOAD_SUPPORT */
-			OS_WAIT(wait_time);
-
-			UpdateChannelInfo(pAd, i,Alg);
-		}
-
-        ch = SelectBestChannel(pAd, Alg);
-   }
-
+	UCHAR ch = 0;
+    ch = SelectBestChannel(pAd, Alg); //asuswrt need it.
     return ch;
 }
