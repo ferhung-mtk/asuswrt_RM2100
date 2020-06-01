@@ -3660,7 +3660,7 @@ RTMP_STRING *GetAuthMode(CHAR auth)
 			3.) UI needs to prepare at least 4096bytes to get the results
     ==========================================================================
 */
-#define	LINE_LEN	(4+33+20+23+9+7+7+3)	/* Channel+SSID+Bssid+Security+Signal+WiressMode+ExtCh+NetworkType*/
+#define	LINE_LEN	(4+33+20+9+16+9+7+7+3)	/* Channel+SSID+Bssid+Security+Signal+WiressMode+ExtCh+NetworkType*/
 
 
 #ifdef WSC_INCLUDED
@@ -3710,7 +3710,9 @@ VOID RTMPCommSiteSurveyData(
 	/*Security*/
 	RTMPZeroMemory(SecurityStr, 32);
 	snprintf(SecurityStr, sizeof(SecurityStr), "%s/%s", GetAuthModeStr(pBss->AKMMap), GetEncryModeStr(pBss->PairwiseCipher));
-	sprintf(msg + strlen(msg), "%-23s", SecurityStr);
+//	sprintf(msg + strlen(msg), "%-23s", SecurityStr);
+	sprintf(msg + strlen(msg), "%-9s", GetEncryModeStr(pBss->PairwiseCipher));
+	sprintf(msg + strlen(msg), "%-16s", GetAuthModeStr(pBss->AKMMap));
 	/* Rssi*/
 	Rssi = (INT)pBss->Rssi;
 
@@ -4114,8 +4116,9 @@ max_len += OWETRANSIE_LINE_LEN;
 	sprintf(msg, "%s", "\n");
 	//sprintf(msg + strlen(msg), "Total=%-4d", pAdapter->ScanTab.BssNr);
 	//sprintf(msg + strlen(msg), "%s", "\n");
-	sprintf(msg + strlen(msg), "%-4s%-33s%-20s%-23s%-9s%-7s%-7s%-3s\n",
-			"Ch", "SSID", "BSSID", "Security", "Signal(%)", "W-Mode", "ExtCH", "NT");
+	sprintf(msg + strlen(msg), "%-4s%-33s%-20s%-9s%-16s%-9s%-7s%-7s%-3s\n",
+			"Ch", "SSID", "BSSID", "Enc", "Auth", "Signal(%)", "W-Mode", "ExtCH", "NT");
+
 #ifdef WSC_INCLUDED
 	sprintf(msg + strlen(msg) - 1, "%-4s%-5s\n", "WPS", "DPID");
 #endif /* WSC_INCLUDED */

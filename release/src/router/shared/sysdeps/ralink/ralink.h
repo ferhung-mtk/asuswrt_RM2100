@@ -227,21 +227,16 @@ typedef struct _SITE_SURVEY_RT3352_iNIC
 typedef struct _SITE_SURVEY
 {
 	char channel[4];
-//	unsigned char channel;
-//	unsigned char centralchannel;
-//	unsigned char unused;
 	unsigned char ssid[33];
-	char bssid[18];
+	char bssid[20];
 	char encryption[9];
 	char authmode[16];
 	char signal[9];
-	char wmode[8];
-#if 0//defined(RTN14U)
+	char wmode[7];
+	char extch[7];
+	char nt[3];
 	char wps[4];
 	char dpid[5];
-#endif
-//	char bsstype[3];
-//	char centralchannel[3];
 } SITE_SURVEY;
 
 typedef struct _SITE_SURVEY_ARRAY

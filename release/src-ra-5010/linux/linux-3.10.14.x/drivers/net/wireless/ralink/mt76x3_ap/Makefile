@@ -152,13 +152,13 @@ ifeq ($(CONFIG_MT76X3_AP_CARRIER),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_cs.o
 endif
 
-ifeq ($(CONFIG_RT_WSC),y)
+ifeq ($(CONFIG_WSC_INCLUDED),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_tlv.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_dh.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_ufd.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_biginteger.o
-ifeq ($(CONFIG_RT_WSC_V2),y)
+ifeq ($(CONFIG_WSC_V2_SUPPORT),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_v2.o
 endif
 ifeq ($(CONFIG_RT_WSC_NFC),y)
@@ -332,7 +332,7 @@ endif
 
 ifeq ($(CONFIG_MT76X3_AP_LED),y)
 EXTRA_CFLAGS += -DLED_CONTROL_SUPPORT
-ifeq ($(CONFIG_RT_WSC),y)
+ifeq ($(CONFIG_WSC_INCLUDED),y)
 EXTRA_CFLAGS += -DWSC_LED_SUPPORT
 endif
 endif
@@ -371,9 +371,9 @@ EXTRA_CFLAGS += -DAIRPLAY_SUPPORT
 endif
 endif
 
-ifeq ($(CONFIG_RT_WSC),y)
+ifeq ($(CONFIG_WSC_INCLUDED),y)
 EXTRA_CFLAGS += -DWSC_AP_SUPPORT -DWSC_INCLUDED -DWSC_SINGLE_TRIGGER
-ifeq ($(CONFIG_RT_WSC_V2),y)
+ifeq ($(CONFIG_WSC_V2_SUPPORT),y)
 EXTRA_CFLAGS += -DWSC_V2_SUPPORT
 endif
 ifeq ($(CONFIG_RT_WSC_NFC),y)

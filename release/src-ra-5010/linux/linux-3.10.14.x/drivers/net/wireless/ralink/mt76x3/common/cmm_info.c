@@ -2340,7 +2340,7 @@ RTMP_STRING *GetAuthMode(CHAR auth)
         		3.) UI needs to prepare at least 4096bytes to get the results
     ==========================================================================
 */
-#define	LINE_LEN	(4+33+20+23+9+7+7+3)	/* Channel+SSID+Bssid+Security+Signal+WiressMode+ExtCh+NetworkType*/
+#define	LINE_LEN	(4+33+20+9+16+9+7+7+3)	/* Channel+SSID+Bssid+Security+Signal+WiressMode+ExtCh+NetworkType*/
 #ifdef AIRPLAY_SUPPORT
 #define IS_UNICODE_SSID_LEN  (4)
 #endif /* AIRPLAY_SUPPORT */
@@ -2492,7 +2492,9 @@ VOID RTMPCommSiteSurveyData(
 			sprintf(SecurityStr, "%s/%s", GetAuthMode((CHAR)ap_auth_mode), GetEncryptType((CHAR)ap_cipher));		
 	}
 	
-	sprintf(msg+strlen(msg), "%-23s", SecurityStr);
+//	sprintf(msg+strlen(msg), "%-23s", SecurityStr);
+	sprintf(msg+strlen(msg), "%-9s", GetEncryptType((CHAR)ap_cipher));
+	sprintf(msg+strlen(msg), "%-16s", GetAuthMode((CHAR)ap_auth_mode));
 
 		/* Rssi*/
 		Rssi = (INT)pBss->Rssi;
@@ -2608,13 +2610,14 @@ VOID RTMPIoctlGetSiteSurvey(
 		sprintf(msg+strlen(msg),"%-4s%-33s%-4s%-20s%-23s%-9s%-7s%-7s%-3s\n",
 			"Ch", "SSID", "UN", "BSSID", "Security", "Signal(%)", "W-Mode", " ExtCH"," NT");
 #else
-	sprintf(msg+strlen(msg),"%-4s%-33s%-20s%-23s%-9s%-7s%-7s%-3s\n",
-	    "Ch", "SSID", "BSSID", "Security", "Signal(%)", "W-Mode", " ExtCH"," NT");	
+		sprintf(msg+strlen(msg),"%-4s%-33s%-20s%-9s%-16s%-9s%-7s%-7s%-3s\n",
+			"Ch", "SSID", "BSSID", "Enc", "Auth", "Signal(%)", "W-Mode", "ExtCH","NT");	
+	
 #endif /* AIRPLAY_SUPPORT */
 
 
 #ifdef WSC_INCLUDED
-	sprintf(msg+strlen(msg)-1,"%-4s%-5s\n", " WPS", " DPID");
+	sprintf(msg+strlen(msg)-1,"%-4s%-5s\n", "WPS", "DPID");
 #endif /* WSC_INCLUDED */
 
 
