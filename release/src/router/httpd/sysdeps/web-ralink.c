@@ -1598,7 +1598,7 @@ static int wl_scan(int eid, webs_t wp, int argc, char_t **argv, int unit)
 		ssap=(SSA *)(wrq.u.data.pointer+strlen(header)+1);
 		int len = strlen(wrq.u.data.pointer+strlen(header))-1;
 		char *sp, *op;
- 		op = sp = wrq.u.data.pointer+strlen(header)+2;
+ 		op = sp = wrq.u.data.pointer+strlen(header)+1;
 		while (*sp && ((len - (sp-op)) >= 0))
 		{
 			ssap->SiteSurvey[i].channel[3] = '\0';
@@ -1612,7 +1612,7 @@ static int wl_scan(int eid, webs_t wp, int argc, char_t **argv, int unit)
 			ssap->SiteSurvey[i].nt[2] = '\0';
 			ssap->SiteSurvey[i].wps[3] = '\0';
 			ssap->SiteSurvey[i].dpid[4] = '\0';
-			sp+=strlen(header)+1;
+			sp+=strlen(header);
 			apCount=++i;
 		}
 		if (apCount)
