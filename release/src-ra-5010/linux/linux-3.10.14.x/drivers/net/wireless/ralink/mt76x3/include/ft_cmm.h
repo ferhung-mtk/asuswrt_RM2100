@@ -154,7 +154,6 @@ typedef struct __FT_R1KH_ENTRY
 	struct __FT_R1KH_ENTRY *pNext;
 	UINT32 KeyLifeTime;
 	UINT32 RassocDeadline;
-	NDIS_802_11_AUTHENTICATION_MODE AuthMode;
 	UINT8 PmkR0Name[16];
 	UINT8 PmkR1Name[16];
 	UINT8 PmkR1Key[32];
@@ -178,6 +177,13 @@ typedef struct __FT_TAB
 	ULONG FT_R1khEntryTabSize;
 
 	BOOLEAN FT_R1khEntryTabReady;
+	#ifdef FT_R1KH_KEEP
+	/*
+	Keep the R1KH catch table on  Radio Off state for MBO-4.2.6(E)
+	case to meet the R1KH miss case.
+	*/
+	BOOLEAN FT_RadioOff;
+#endif /* FT_R1KH_KEEP */
 } FT_TAB, *PFT_TAB; 
 
 typedef struct __FT_MDIE_INFO

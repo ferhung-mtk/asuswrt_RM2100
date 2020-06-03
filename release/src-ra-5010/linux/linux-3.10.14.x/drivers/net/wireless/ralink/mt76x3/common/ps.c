@@ -49,7 +49,7 @@ NDIS_STATUS RtmpInsertPsQueue(
 #ifdef UAPSD_SUPPORT
 	UINT32 ac_id;
 #endif
-	STA_TR_ENTRY *tr_entry = &pAd->MacTab.tr_entry[pMacEntry->wcid];
+	STA_TR_ENTRY *tr_entry = &pAd->MacTab.tr_entry[pMacEntry->wcid];;
 #ifdef UAPSD_SUPPORT
 	/* put the U-APSD packet to its U-APSD queue by AC ID */
 	ac_id = QueIdx - QID_AC_BE; /* should be >= 0 */

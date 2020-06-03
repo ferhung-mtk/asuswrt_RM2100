@@ -59,11 +59,10 @@ BOOLEAN RRM_PeerNeighborReqSanity(
 		return result;
 
 	pEntry = MacTableLookup(pAd, Fr->Hdr.Addr2);
-	if (pEntry->func_tb_idx > pAd->ApCfg.BssidNum)
-	{
+	if (pEntry == NULL)
 		return result;
-	}
-
+	if (pEntry->func_tb_idx > pAd->ApCfg.BssidNum)
+		return result;
 	*pSsid = pAd->ApCfg.MBSSID[pEntry->func_tb_idx].Ssid;
 	*pSsidLen = pAd->ApCfg.MBSSID[pEntry->func_tb_idx].SsidLen;
 

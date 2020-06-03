@@ -36,6 +36,10 @@ extern UCHAR	RALINK_OUI[];
 extern UCHAR BROADCOM_OUI[];
 extern UCHAR WPS_OUI[];
 
+#ifdef WH_EZ_SETUP
+extern unsigned char mtk_oui[];
+#endif /* WH_EZ_SETUP */
+
 #ifdef DBG
 static void ap_assoc_info_debugshow(
 	IN RTMP_ADAPTER *pAd,
@@ -120,6 +124,9 @@ static USHORT update_associated_mac_entry(
 {
 	struct wifi_dev *wdev;
 	STA_TR_ENTRY *tr_entry;
+#ifdef DOT11R_FT_SUPPORT
+	UCHAR zeroFT[LEN_TK];
+#endif
 
 	ASSERT((pEntry->func_tb_idx < pAd->ApCfg.BssidNum));
 	wdev = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev;
@@ -134,7 +141,14 @@ static USHORT update_associated_mac_entry(
 
 	pEntry->CapabilityInfo = ie_list->CapabilityInfo;
 
-	if ((pEntry->AuthMode == Ndis802_11AuthModeWPAPSK) || (pEntry->AuthMode == Ndis802_11AuthModeWPA2PSK))
+	if ((pEntry->AuthMode == Ndis802_11AuthModeWPAPSK) || (pEntry->AuthMode == Ndis802_11AuthModeWPA2PSK)
+#ifdef DOT11_SAE_SUPPORT
+		|| (pEntry->AuthMode == Ndis802_11AuthModeWPA3PSK)
+#endif
+#ifdef CONFIG_OWE_SUPPORT
+		|| (pEntry->AuthMode == Ndis802_11AuthModeOWE)
+#endif
+		)
 	{
 		pEntry->PrivacyFilter = Ndis802_11PrivFilter8021xWEP;
 		pEntry->WpaState = AS_INITPSK;
@@ -224,7 +238,13 @@ static USHORT update_associated_mac_entry(
 #ifdef CONFIG_HOTSPOT_R2
 		if (ie_list->ExtCapInfo.qosmap)
 			pEntry->QosMapSupport = 1;
-#endif		
+#endif
+
+#ifdef CONFIG_DOT11V_WNM
+		if (ie_list->ExtCapInfo.BssTransitionManmt)
+			pEntry->BssTransitionManmtSupport = 1;
+#endif /* CONFIG_DOT11V_WNM */
+
 #ifdef DOT11V_WNM_SUPPORT
 		if(IS_BSS_TRANSIT_MANMT_SUPPORT(pAd, pEntry->func_tb_idx))
 		{
@@ -238,10 +258,10 @@ static USHORT update_associated_mac_entry(
 		}
 #endif /* DOT11V_WNM_SUPPORT */
 
-#ifdef DOT11N_DRAFT3
 		/* 40Mhz BSS Width Trigger events */
 		if (ie_list->HTCapability.HtCapInfo.Forty_Mhz_Intolerant)
 		{
+#ifdef DOT11N_DRAFT3
 			pEntry->bForty_Mhz_Intolerant = TRUE;
 			pAd->MacTab.fAnyStaFortyIntolerant = TRUE;
 			if(((pAd->CommonCfg.HtCapability.HtCapInfo.ChannelWidth == BW_40) && 
@@ -255,11 +275,19 @@ static USHORT update_associated_mac_entry(
 				pAd->CommonCfg.AddHTInfo.AddHtInfo.RecomWidth = 0;
 				pAd->CommonCfg.AddHTInfo.AddHtInfo.ExtChanOffset = 0;
 				pAd->CommonCfg.Bss2040CoexistFlag |= BSS_2040_COEXIST_INFO_SYNC;
+#if (defined(WH_EZ_SETUP) && defined(EZ_NETWORK_MERGE_SUPPORT))
+				if (IS_EZ_SETUP_ENABLED(wdev)){
+					EZ_DEBUG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR,("\nupdate_associated_mac_entry: Fallback thru asoc req ****\n"));
+					ez_set_ap_fallback_context(wdev,TRUE, pAd->CommonCfg.Channel);
+				}
+#endif /* WH_EZ_SETUP */
+				
 			}
 			DBGPRINT(RT_DEBUG_TRACE, ("pEntry set 40MHz Intolerant as 1\n"));
+#endif /* DOT11N_DRAFT3 */
 			Handle_BSS_Width_Trigger_Events(pAd);
 		}
-#endif /* DOT11N_DRAFT3 */
+		
 
 		/* find max fixed rate */
 		pEntry->MaxHTPhyMode.field.MCS = get_ht_max_mcs(pAd, &wdev->DesiredHtPhyInfo.MCSSet[0],
@@ -412,7 +440,9 @@ DBGPRINT(RT_DEBUG_OFF, ("%s(): Peer's PhyCap=>Mode:%s, BW:%s\n",
 
 	pEntry->freqOffsetValid = FALSE;
 
-
+#ifdef DOT11R_FT_SUPPORT
+	NdisZeroMemory(zeroFT, LEN_TK);
+#endif
 	// Initialize Rate Adaptation
 	MlmeRAInit(pAd, pEntry);
 
@@ -462,7 +492,12 @@ DBGPRINT(RT_DEBUG_OFF, ("%s(): Peer's PhyCap=>Mode:%s, BW:%s\n",
 	}
 
 #ifdef MT_MAC
-	if (pAd->chipCap.hif_type == HIF_MT)
+	if (pAd->chipCap.hif_type == HIF_MT
+#ifdef DOT11R_FT_SUPPORT
+		&& (!IS_FT_STA(pEntry) || (IS_FT_STA(pEntry) && (NdisEqualMemory(&pEntry->PTK[OFFSET_OF_PTK_TK],
+		zeroFT, LEN_TK) || !NdisEqualMemory(&pEntry->PTK[OFFSET_OF_PTK_TK], pEntry->LastTK, LEN_TK))))
+#endif
+	)
 	{
         AsicUpdateRxWCIDTable(pAd, pEntry->wcid, pEntry->Addr);
 		AsicRcpiReset(pAd, pEntry->wcid);
@@ -513,11 +548,23 @@ static USHORT APBuildAssociation(
 {
 	USHORT StatusCode = MLME_SUCCESS;
 	UCHAR MaxSupportedRate = RATE_11;
+#ifdef WH_EZ_SETUP	
+	struct wifi_dev *wdev = NULL;
+#else
 	struct wifi_dev *wdev;
+#endif	
 #ifdef WSC_AP_SUPPORT
 	WSC_CTRL *wsc_ctrl;
 #endif /* WSC_AP_SUPPORT */
 	STA_TR_ENTRY *tr_entry;
+#if defined(CONFIG_OWE_SUPPORT) || defined(DOT11_SAE_SUPPORT)
+	PUINT8 pPmkid = NULL;
+	UINT8 pmkid_count = 0;
+#endif /*CONFIG_OWE_SUPPORT*/
+#ifdef DOT11_SAE_SUPPORT
+	INT cacheidx;
+#endif
+
 
 	MaxSupportedRate = dot11_2_ra_rate(MaxSupportedRateIn500Kbps);
 
@@ -569,14 +616,56 @@ static USHORT APBuildAssociation(
 #endif       
         { 
 #ifdef WSC_AP_SUPPORT
-			if (pEntry->bWscCapable == FALSE)
+		if (pEntry->bWscCapable == FALSE)
 #endif /* WSC_AP_SUPPORT */
-			{
-				/* check the validity of the received RSNIE */
-				if ((StatusCode = APValidateRSNIE(pAd, pEntry, &ie_list->RSN_IE[0], ie_list->RSNIE_Len)) != MLME_SUCCESS)
-					return StatusCode;
+		{
+			/* check the validity of the received RSNIE */
+			StatusCode = APValidateRSNIE(pAd, pEntry, &ie_list->RSN_IE[0], ie_list->RSNIE_Len);
+			if (StatusCode != MLME_SUCCESS)
+				return StatusCode;
+#ifdef DOT11_SAE_SUPPORT
+
+			if ((StatusCode == MLME_SUCCESS)
+				&& pEntry->AuthMode == Ndis802_11AuthModeWPA3PSK) {
+
+				pPmkid = WPA_ExtractSuiteFromRSNIE(ie_list->RSN_IE,
+									ie_list->RSNIE_Len, PMKID_LIST, &pmkid_count);
+				if (pPmkid != NULL) {
+					cacheidx = RTMPSearchPMKIDCache(pAd, pEntry->func_tb_idx, pEntry->Addr);
+					if (cacheidx == -1
+						|| RTMPEqualMemory(pPmkid,
+						&pAd->ApCfg.MBSSID[pEntry->func_tb_idx].
+						PMKIDCache.BSSIDInfo[cacheidx].PMKID,
+						LEN_PMKID) == 0) {
+						StatusCode = MLME_INVALID_PMKID;
+					}
+				}
 			}
-        }
+#endif /* DOT11_SAE_SUPPORT */
+
+#ifdef CONFIG_OWE_SUPPORT
+				if (StatusCode == MLME_SUCCESS
+					&& pEntry->AuthMode == Ndis802_11AuthModeOWE) {
+					StatusCode = owe_pmkid_ecdh_process(pAd,
+									pEntry,
+									ie_list->RSN_IE,
+									ie_list->RSNIE_Len,
+									&ie_list->ecdh_ie,
+									ie_list->ecdh_ie.length,
+									pPmkid,
+									&pmkid_count,
+									SUBTYPE_ASSOC_REQ);
+
+				}
+
+#endif /*CONFIG_OWE_SUPPORT*/
+
+#if defined(DOT11_SAE_SUPPORT) || defined(CONFIG_OWE_SUPPORT)
+				if (StatusCode != MLME_SUCCESS)
+					return StatusCode;
+#endif
+			}
+		}
 		NdisMoveMemory(pEntry->RSN_IE, &ie_list->RSN_IE[0], ie_list->RSNIE_Len);
 		pEntry->RSNIE_Len = ie_list->RSNIE_Len;
 
@@ -623,7 +712,14 @@ static USHORT APBuildAssociation(
 						tr_entry->PortSecured = WPA_802_1X_PORT_SECURED;
 				}
 				if ((pEntry->AuthMode == Ndis802_11AuthModeWPAPSK) ||
-				(pEntry->AuthMode == Ndis802_11AuthModeWPA2PSK))
+					(pEntry->AuthMode == Ndis802_11AuthModeWPA2PSK)
+#ifdef DOT11_SAE_SUPPORT
+					|| (pEntry->AuthMode == Ndis802_11AuthModeWPA3PSK)
+#endif
+#ifdef CONFIG_OWE_SUPPORT
+					|| (pEntry->AuthMode == Ndis802_11AuthModeOWE)
+#endif
+					)
 				{
 					pEntry->PrivacyFilter = Ndis802_11PrivFilter8021xWEP;
 					pEntry->WpaState = AS_INITPSK;
@@ -668,6 +764,20 @@ static USHORT APBuildAssociation(
 	else /* CLASS 3 error should have been handled beforehand; here should be MAC table full */
 		StatusCode = MLME_ASSOC_REJ_UNABLE_HANDLE_STA;
 
+#ifdef WH_EZ_SETUP
+	
+#ifdef NEW_CONNECTION_ALGO
+		if (IS_EZ_SETUP_ENABLED(wdev) && (ez_is_connection_allowed(wdev) == FALSE))
+			StatusCode = MLME_ASSOC_REJ_TEMPORARILY;
+#endif
+	
+		if ((StatusCode == MLME_SUCCESS)
+			&& pEntry->easy_setup_enabled) {
+			if (pEntry->easy_setup_mic_valid == FALSE)
+				StatusCode = MLME_REJ_CHALLENGE_FAILURE;
+		}
+#endif /* WH_EZ_SETUP */
+
 	if (StatusCode == MLME_SUCCESS)
 	{
 		if (ie_list->bWmmCapable)
@@ -704,11 +814,22 @@ static BOOLEAN IAPP_L2_Update_Frame_Send(RTMP_ADAPTER *pAd, UINT8 *mac, INT wdev
 {
 
 	NDIS_PACKET	*pNetBuf;
-
+#if defined(CONFIG_WIFI_PKT_FWD) || defined(CONFIG_WIFI_PKT_FWD_MODULE)
+#if (MT7615_MT7603_COMBO_FORWARDING == 1)
+	struct wifi_dev *wdev;
+	wdev = pAd->wdev_list[wdev_idx];
+#endif
+#endif
 	pNetBuf = RtmpOsPktIappMakeUp(get_netdev_from_bssid(pAd, wdev_idx), mac);
 	if (pNetBuf == NULL)
 		return FALSE;
 
+#if defined(CONFIG_WIFI_PKT_FWD) || defined(CONFIG_WIFI_PKT_FWD_MODULE)
+#if (MT7615_MT7603_COMBO_FORWARDING == 1)
+	if (wf_fwd_needed_hook != NULL && wf_fwd_needed_hook() == TRUE)
+		set_wf_fwd_cb(pAd, pNetBuf, wdev);
+#endif /* CONFIG_WIFI_PKT_FWD */
+#endif
 	/* UCOS: update the built-in bridge, too (don't use gmac.xmit()) */
 	announce_802_3_packet(pAd, pNetBuf, OPMODE_AP);
 
@@ -743,7 +864,10 @@ BOOLEAN PeerAssocReqCmmSanity(
 #ifdef CONFIG_HOTSPOT_R2
 	UCHAR HS2_OSEN_OUI[4] = { 0x50, 0x6f, 0x9a, 0x12 };
 	UCHAR HS2OUIBYTE[4] = {0x50, 0x6f, 0x9a, 0x10};
-#endif    
+#endif
+#ifdef MBO_SUPPORT
+	UCHAR MBO_OCE_OUI_BYTE[4] = {0x50, 0x6f, 0x9a, 0x16};
+#endif/* MBO_SUPPORT */
     MAC_TABLE_ENTRY *pEntry = (MAC_TABLE_ENTRY *)NULL;
 #ifdef DOT11R_FT_SUPPORT
 	FT_INFO *pFtInfo = &ie_lists->FtInfo;
@@ -752,12 +876,25 @@ BOOLEAN PeerAssocReqCmmSanity(
 	RRM_EN_CAP_IE *pRrmEnCap = &ie_lists->RrmEnCap;
 #endif /* DOT11K_RRM_SUPPORT */
 	HT_CAPABILITY_IE *pHtCapability = &ie_lists->HTCapability;
-
+#ifdef WH_EZ_SETUP
+#ifdef DOT1X_SUPPORT
+	PUINT8 pPmkid = NULL;
+	UINT8 pmkid_count = 0;
+	BSS_STRUCT *pMbss;
+	struct wifi_dev *wdev;
+#endif /* DOT1X_SUPPORT */
+#endif
+#ifdef CONFIG_OWE_SUPPORT
+	UCHAR *extension_id;
+	UCHAR *ext_ie_length;
+#endif
+	if(pAd == NULL)
+		return FALSE;
 
 	pEntry = MacTableLookup(pAd, &Fr->Hdr.Addr2[0]);
 	if (pEntry == NULL)
 		return FALSE;
-
+	COPY_MAC_ADDR(&ie_lists->Addr1[0], &Fr->Hdr.Addr1[0]);
 	COPY_MAC_ADDR(&ie_lists->Addr2[0], &Fr->Hdr.Addr2[0]);
 	
 	//Ptr = (PCHAR)Fr->Octet;
@@ -883,15 +1020,77 @@ BOOLEAN PeerAssocReqCmmSanity(
 			if (eid_ptr->Len)
 			{
 				INT ext_len = eid_ptr->Len;
+#ifdef RT_BIG_ENDIAN
+				UCHAR *pextCapInfo = NULL;
+#endif
 
 				ext_len = ext_len > sizeof(EXT_CAP_INFO_ELEMENT) ? sizeof(EXT_CAP_INFO_ELEMENT) : ext_len;
 				NdisMoveMemory(&ie_lists->ExtCapInfo, eid_ptr->Octet, ext_len);
+#ifdef RT_BIG_ENDIAN
+				pextCapInfo = (UCHAR *)&ie_lists->ExtCapInfo;
+				*((UINT32*)pextCapInfo) = cpu2le32(*((UINT32 *)pextCapInfo));
+				*((UINT32*)(pextCapInfo + 4)) = cpu2le32(*((UINT32 *)(pextCapInfo + 4)));
+#endif
 				DBGPRINT(RT_DEBUG_WARN, ("PeerAssocReqSanity - IE_EXT_CAPABILITY!\n"));
 			}
 
 			break;
 
             case IE_WPA:    /* same as IE_VENDOR_SPECIFIC */
+#ifdef MBO_SUPPORT
+				if (NdisEqualMemory(eid_ptr->Octet, MBO_OCE_OUI_BYTE, sizeof(MBO_OCE_OUI_BYTE))
+					&& (eid_ptr->Len >= 5)) {
+					MboParseStaMboIE(pAd, &pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev,
+					pEntry, eid_ptr->Octet, eid_ptr->Len, MBO_FRAME_TYPE_ASSOC_REQ);
+					break;
+				}
+#endif/* MBO_SUPPORT */
+#ifdef MWDS
+				if(NdisEqualMemory(MTK_OUI, eid_ptr->Octet, 3))
+				{
+					if(MWDS_SUPPORT(eid_ptr->Octet[3]))
+					{
+						pEntry->bSupportMWDS = TRUE;
+						DBGPRINT(RT_DEBUG_OFF, ("Peer supports MWDS\n"));
+					}
+					else
+						pEntry->bSupportMWDS = FALSE;
+				}
+#endif /* MWDS */
+			
+#ifdef WH_EZ_SETUP
+				if (IS_EZ_SETUP_ENABLED((pEntry->wdev)) && NdisEqualMemory(&mtk_oui[0], &eid_ptr->Octet[0], MTK_OUI_LEN)) {
+					if (eid_ptr->Octet[MTK_OUI_LEN] & MTK_VENDOR_EASY_SETUP) {
+						EZ_DEBUG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, 
+							("%s(%d) - Found MTK Easy Setup OUI.\n",
+							__FUNCTION__, __LINE__));
+						pEntry->easy_setup_enabled = TRUE;
+						break;
+					}
+				}			
+#endif /* WH_EZ_SETUP */
+#ifdef STA_FORCE_ROAM_SUPPORT
+				if (pAd->en_force_roam_supp) {
+					if (NdisEqualMemory(MTK_OUI, eid_ptr->Octet, 3)) {
+					if (IS_MEDIATEK_CLI_ENTRY(eid_ptr->Octet[3])) {
+						pEntry->is_peer_entry_apcli = TRUE;
+						MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+							("Peer ENTRY IS MTK CLI\n"));
+					} else
+							pEntry->is_peer_entry_apcli = FALSE;
+					}
+				}
+#endif
+#ifdef WH_EVENT_NOTIFIER
+						if(pAd->ApCfg.EventNotifyCfg.CustomOUILen && 
+						   (eid_ptr->Len >= pAd->ApCfg.EventNotifyCfg.CustomOUILen) &&
+							NdisEqualMemory(eid_ptr->Octet, pAd->ApCfg.EventNotifyCfg.CustomOUI, pAd->ApCfg.EventNotifyCfg.CustomOUILen))
+						{
+							pEntry->custom_ie_len = eid_ptr->Len;
+							NdisMoveMemory(pEntry->custom_ie, eid_ptr->Octet, eid_ptr->Len);
+							break;
+						}
+#endif /* WH_EVENT_NOTIFIER */
             case IE_WPA2:
 #ifdef DOT11R_FT_SUPPORT
 #endif /* DOT11R_FT_SUPPORT */
@@ -970,6 +1169,9 @@ BOOLEAN PeerAssocReqCmmSanity(
         			ie_lists->RalinkIe = 0xf0000000; /* Set to non-zero value (can't set bit0-2) to represent this is Ralink Chip. So at linkup, we will set ralinkchip flag. */
                     break;
                 }
+#if defined(MWDS) || defined(MAP_SUPPORT)
+				check_vendor_ie(pAd, (UCHAR *)eid_ptr, &(ie_lists->vendor_ie));
+#endif
                 
                 /* WMM_IE */
                 if (NdisEqualMemory(eid_ptr->Octet, WME_INFO_ELEM, 6) && (eid_ptr->Len == 7))
@@ -994,7 +1196,11 @@ BOOLEAN PeerAssocReqCmmSanity(
                 /* 	If this IE did not begins with 00:0x50:0xf2:0x01,  
                 	it would be proprietary. So we ignore it. */
                 if (!NdisEqualMemory(eid_ptr->Octet, WPA1_OUI, sizeof(WPA1_OUI))
-                    && !NdisEqualMemory(&eid_ptr->Octet[2], WPA2_OUI, sizeof(WPA2_OUI)))
+					&& !NdisEqualMemory(&eid_ptr->Octet[2], WPA2_OUI, sizeof(WPA2_OUI))
+#ifdef CONFIG_SECURITY_IMPROVEMENT_SUPPORT
+					&& eid_ptr->Len != 2
+#endif
+					)
                 {
                     DBGPRINT(RT_DEBUG_TRACE, ("Not RSN IE, maybe WMM IE!!!\n"));
                     
@@ -1004,12 +1210,16 @@ BOOLEAN PeerAssocReqCmmSanity(
 				unsigned char *tmp = (unsigned char *)eid_ptr->Octet;
 
 				DBGPRINT(RT_DEBUG_OFF, ("!!!!!!not found OSEN IE,%x:%x:%x:%x\n", *tmp, *(tmp+1), *(tmp+2), *(tmp+3)));
+				pEntry->OSEN_IE_Len = 0;
 				CLIENT_STATUS_CLEAR_FLAG(pEntry, fCLIENT_STATUS_OSEN_CAPABLE);
                     break;                          
                 }
 			else
 			{
 				CLIENT_STATUS_SET_FLAG(pEntry, fCLIENT_STATUS_OSEN_CAPABLE);
+				NdisMoveMemory(pEntry->OSEN_IE, eid_ptr, eid_ptr->Len + 2);
+				pEntry->OSEN_IE_Len = eid_ptr->Len + 2;
+
 				DBGPRINT(RT_DEBUG_OFF, ("!!!!!!found OSEN IE\n"));
 			}
 #else
@@ -1120,6 +1330,35 @@ BOOLEAN PeerAssocReqCmmSanity(
 			}
 			break;
 #endif /* DOT11_VHT_AC */
+#ifdef CONFIG_OWE_SUPPORT
+		case IE_WLAN_EXTENSION:
+			/*parse EXTENSION EID*/
+			extension_id = (UCHAR *)eid_ptr + 2;
+			switch (*extension_id) {
+			case IE_EXTENSION_ID_ECDH:
+				ext_ie_length = (UCHAR *)eid_ptr + 1;
+				if (*ext_ie_length - 3 <= sizeof(ie_lists->ecdh_ie.public_key))
+					os_zero_mem(ie_lists->ecdh_ie.public_key, *ext_ie_length - 3);
+				else {
+					DBGPRINT(RT_DEBUG_ERROR, ("%s():IE_ECDH error\n", __func__));
+					break;
+				}
+				ie_lists->ecdh_ie.ext_ie_id = IE_WLAN_EXTENSION;
+				ie_lists->ecdh_ie.length = eid_ptr->Len;
+				if (eid_ptr->Len <= sizeof(ie_lists->ecdh_ie) - 2)
+					NdisMoveMemory(&ie_lists->ecdh_ie.ext_id_ecdh, eid_ptr->Octet, eid_ptr->Len);
+				else {
+					DBGPRINT(RT_DEBUG_ERROR, ("%s():IE_ECDH error\n", __func__));
+					break;
+				}
+				break;
+			default:
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("IE_WLAN_EXTENSION: no handler for extension_id:%d\n", *extension_id));
+				break;
+			}
+			break;
+#endif /*CONFIG_OWE_SUPPORT*/
 
             default:
                 break;
@@ -1127,6 +1366,32 @@ BOOLEAN PeerAssocReqCmmSanity(
 
         eid_ptr = (PEID_STRUCT)((UCHAR*)eid_ptr + 2 + eid_ptr->Len);        
     }
+
+#ifdef WH_EZ_SETUP
+#ifdef DOT1X_SUPPORT
+		wdev = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev;
+	
+		if(IS_EZ_SETUP_ENABLED(wdev) && ((APValidateRSNIE(pAd, pEntry, &ie_lists->RSN_IE[0], ie_lists->RSNIE_Len)) == MLME_SUCCESS))
+		{
+			if (/*IS_AKM_WPA2_Entry(pEntry)*/ (pEntry->AuthMode == Ndis802_11AuthModeWPA2) &&
+						((pPmkid = WPA_ExtractSuiteFromRSNIE(ie_lists->RSN_IE, ie_lists->RSNIE_Len, PMKID_LIST, &pmkid_count)) != NULL))
+			{	/* Key cache */
+				INT CacheIdx;
+				
+				pMbss = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx];
+	
+				if (((CacheIdx = RTMPSearchPMKIDCache(pAd, pEntry->func_tb_idx, pEntry->Addr)) == -1)
+					|| ((RTMPEqualMemory(pPmkid, &pMbss->PMKIDCache.BSSIDInfo[CacheIdx].PMKID, LEN_PMKID)) == 0))
+				{
+					MlmeDeAuthAction(pAd, pEntry, REASON_DISASSOC_STA_LEAVING, FALSE);
+					EZ_DEBUG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+									("%s: PMKID not found \n", __FUNCTION__));
+					return FALSE;
+				}
+			}
+		}
+#endif /* DOT1X_SUPPORT */
+#endif
 
 	if ((Sanity&0x3) != 0x03)	 
 	{
@@ -1146,36 +1411,42 @@ VOID ap_cmm_peer_assoc_req_action(
     IN MLME_QUEUE_ELEM *Elem,
 	IN BOOLEAN isReassoc)
 {
-	struct wifi_dev *wdev;
+#ifdef WH_EZ_SETUP
+	struct wifi_dev *wdev = NULL;
+#else
+	struct wifi_dev *wdev = NULL;
+#endif
 	BSS_STRUCT *pMbss;
 	BOOLEAN bAssocSkip = FALSE;
 	CHAR rssi;
+#ifdef DOT11R_FT_SUPPORT
+	UCHAR zeroFT[LEN_TK];
+#endif
 	IE_LISTS *ie_list = NULL;
 	HEADER_802_11 AssocRspHdr;
 	USHORT CapabilityInfoForAssocResp;
 	USHORT StatusCode = MLME_SUCCESS;
-	USHORT Aid;
+	USHORT Aid = 0;
 	PUCHAR pOutBuffer = NULL;
 	NDIS_STATUS NStatus;
 	ULONG FrameLen = 0;
 	UCHAR MaxSupportedRate = 0;
 	UCHAR SupRateLen, PhyMode, FlgIs11bSta;
 	UCHAR i;
-	MAC_TABLE_ENTRY *pEntry;
+	MAC_TABLE_ENTRY *pEntry = NULL;
 	STA_TR_ENTRY *tr_entry;
-
 #ifdef DBG
 	UCHAR *sAssoc = isReassoc ? (PUCHAR)"ReASSOC" : (PUCHAR)"ASSOC";
 #endif /* DBG */
 	UCHAR SubType;
 	BOOLEAN bACLReject = FALSE;
-#ifdef DOT1X_SUPPORT
+#if defined(DOT1X_SUPPORT) || defined(DOT11_SAE_SUPPORT) || defined(CONFIG_OWE_SUPPORT)
 	PUINT8 pPmkid = NULL;
 	UINT8 pmkid_count = 0;
 #endif /* DOT1X_SUPPORT */
 #ifdef DOT11R_FT_SUPPORT
 	PFT_CFG pFtCfg = NULL;
-	FT_INFO FtInfoBuf;
+	FT_INFO FtInfoBuf = {0};
 #endif /* DOT11R_FT_SUPPORT */
 #ifdef WSC_AP_SUPPORT
 	WSC_CTRL *wsc_ctrl;
@@ -1184,20 +1455,40 @@ VOID ap_cmm_peer_assoc_req_action(
 	UINT32 tmp_1;
 	UINT64 tmp_2;
 #endif /*RT_BIG_ENDIAN*/
+#ifdef MBO_SUPPORT
+	BOOLEAN bMboReject = FALSE;
+#endif/* MBO_SUPPORT */
+#ifdef WAPP_SUPPORT
+	UINT8 wapp_cnnct_stage = WAPP_ASSOC;
+	UINT16 wapp_assoc_fail = NOT_FAILURE;
+#endif/* WAPP_SUPPORT */
 
+#ifdef WH_EZ_SETUP
+	if(IS_ADPTR_EZ_SETUP_ENABLED(pAd))
+		EZ_DEBUG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("ap_cmm_peer_assoc_req_action()\n"));
+#endif
 
 	/* disallow new association */
 	if (pAd && (pAd->ApCfg.BANClass3Data == TRUE))
 	{
 		DBGPRINT(RT_DEBUG_TRACE, ("Disallow new Association\n"));
-		return;
+#ifdef WAPP_SUPPORT
+		wapp_assoc_fail = DISALLOW_NEW_ASSOCI;
+#endif/* WAPP_SUPPORT */	
+		goto assoc_check;
+		/*return; sync 7615*/
 	}
 		
 	/* allocate memory */
 	os_alloc_mem(NULL, (UCHAR **)&ie_list, sizeof(IE_LISTS));
 	if (ie_list == NULL) {
 		DBGPRINT(RT_DEBUG_ERROR, ("%s(): mem alloc failed\n", __FUNCTION__));
-		return;
+#ifdef WAPP_SUPPORT
+		wapp_assoc_fail = MLME_NO_RESOURCE;
+#endif/* WAPP_SUPPORT */
+		goto assoc_check;
+		/*return; sync 7615*/
 	}
 	NdisZeroMemory(ie_list, sizeof(IE_LISTS));
 					
@@ -1221,9 +1512,65 @@ VOID ap_cmm_peer_assoc_req_action(
 	pMbss = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx];
 	wdev = &pMbss->wdev;
 	tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
-
+	if(pEntry) {
+		INT32 prev = -1;
+		prev =(INT32)pEntry->AuthAssocNotInProgressFlag;
+		pEntry->AuthAssocNotInProgressFlag = 0;
+		DBGPRINT(RT_DEBUG_TRACE,("===[%s] prev_val = %d AuthAssocNotInProgressFlag = %u pEntry->wcid = %d \n",
+                    __FUNCTION__, prev, pEntry->AuthAssocNotInProgressFlag, pEntry->wcid));
+    }
 	if(tr_entry == NULL)
 		DBGPRINT(RT_DEBUG_TRACE, ("tr_entry is NULL.\n"));
+
+/* WPS_BandSteering Support */
+#if defined(BAND_STEERING) && defined(WSC_INCLUDED)
+	if (pAd->ApCfg.BandSteering) {
+
+		PWSC_CTRL pWscControl = NULL;
+		PBND_STRG_CLI_ENTRY cli_entry = NULL;
+		PBND_STRG_CLI_TABLE table = NULL;
+		PWPS_WHITELIST_ENTRY wps_entry = NULL;
+		PBS_LIST_ENTRY bs_whitelist_entry = NULL;
+
+		pWscControl = &pAd->ApCfg.MBSSID[wdev->func_idx].WscControl;
+		table = Get_BndStrgTable(pAd, wdev->func_idx);
+		if (table && table->bEnabled) {
+
+			cli_entry = BndStrg_TableLookup(table, pEntry->Addr);
+			wps_entry = FindWpsWhiteListEntry(&table->WpsWhiteList, pEntry->Addr);
+
+			/* WPS: special WIN7 case: no wps/rsn ie in assoc */
+			/* and send eapol start, consider it as wps station */
+			if ((ie_list->RSNIE_Len == 0) && (BNDSTRG_IS_WPA_CAPABILITY(wdev->AuthMode))
+				&& (pWscControl->WscConfMode != WSC_DISABLE))
+				ie_list->bWscCapable = TRUE;
+
+			/* in case probe did not have wps ie, but assoc has, create wps whitelist entry here */
+			if (!wps_entry && ie_list->bWscCapable && pWscControl->bWscTrigger) {
+
+				NdisAcquireSpinLock(&table->WpsWhiteListLock);
+				AddWpsWhiteList(&table->WpsWhiteList, pEntry->Addr);
+				NdisReleaseSpinLock(&table->WpsWhiteListLock);
+				MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("channel %u: WPS Assoc req: STA %02x:%02x:%02x:%02x:%02x:%02x wps whitelisted\n",
+				 table->Channel, PRINT_MAC(pEntry->Addr)));
+				BND_STRG_PRINTQAMSG(table, pEntry->Addr, ("ASSOC STA %02x:%02x:%02x:%02x:%02x:%02x channel %u  added in WPS Whitelist\n",
+				PRINT_MAC(pEntry->Addr), table->Channel));
+			}
+
+			bs_whitelist_entry = FindBsListEntry(&table->WhiteList, pEntry->Addr);
+
+			/* handle case: where a client has wps ie in probe, not have bndstrg entry/bndstrg whitelist, */
+			/* but doing normal assoc: dont allow */
+			if ((pWscControl->bWscTrigger) && (!cli_entry) && (!ie_list->bWscCapable) && (!bs_whitelist_entry)) {
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\n%s():reject assoc:bWscTrigger:%d, cli_entry:%p,bWscCapable:%d, bs_whitelist_entry:%p\n",
+				 __func__, pWscControl->bWscTrigger, cli_entry, ie_list->bWscCapable, bs_whitelist_entry));
+				BND_STRG_PRINTQAMSG(table, pEntry->Addr, ("STA %02x:%02x:%02x:%02x:%02x:%02x Normal Assoc Rejected for BS unauthorized client\n",
+				PRINT_MAC(pEntry->Addr)));
+				goto LabelOK;
+			}
+		}
+	}
+#endif
 
 #ifdef WSC_AP_SUPPORT
 	wsc_ctrl = &pMbss->WscControl;
@@ -1243,18 +1590,42 @@ VOID ap_cmm_peer_assoc_req_action(
 			break;
 		}
 	}
-    
+#ifdef MBO_SUPPORT
+	if (!MBO_AP_ALLOW_ASSOC(wdev)) {
+		StatusCode = MLME_ASSOC_REJ_UNABLE_HANDLE_STA;
+		bMboReject = TRUE;
+#ifdef WAPP_SUPPORT
+		wapp_assoc_fail = MLME_UNABLE_HANDLE_STA;
+#endif/* WAPP_SUPPORT */
+		goto SendAssocResponse;
+	}
+#endif/* MBO_SUPPORT */
 #ifdef DOT11W_PMF_SUPPORT
-        if ((tr_entry->PortSecured == WPA_802_1X_PORT_SECURED)
-                && (CLIENT_STATUS_TEST_FLAG(pEntry, fCLIENT_STATUS_PMF_CAPABLE)))
+		if (tr_entry && (tr_entry->PortSecured == WPA_802_1X_PORT_SECURED)
+			&& (CLIENT_STATUS_TEST_FLAG(pEntry, fCLIENT_STATUS_PMF_CAPABLE))
+#ifdef DOT11R_FT_SUPPORT
+			&& (!IS_FT_RSN_STA(pEntry))
+#endif /* DOT11R_FT_SUPPORT */
+		)
         {
                 StatusCode = MLME_ASSOC_REJ_TEMPORARILY;
+#ifdef WAPP_SUPPORT
+				wapp_assoc_fail = MLME_ASSOC_REJ_TEMP;
+#endif/* WAPP_SUPPORT */
                 goto SendAssocResponse;
         }
 #endif /* DOT11W_PMF_SUPPORT */
     
 	/* clear the previous Pairwise key table */
-    if(pEntry->Aid != 0 &&
+#ifdef DOT11R_FT_SUPPORT
+		NdisZeroMemory(zeroFT, LEN_TK);
+#endif
+
+		if (pEntry->Aid != 0 &&
+#ifdef DOT11R_FT_SUPPORT
+		(!IS_FT_STA(pEntry) || (IS_FT_STA(pEntry) && (NdisEqualMemory(&pEntry->PTK[OFFSET_OF_PTK_TK],
+		zeroFT, LEN_TK) || !NdisEqualMemory(&pEntry->PTK[OFFSET_OF_PTK_TK], pEntry->LastTK, LEN_TK)))) &&
+#endif
 	(pEntry->WepStatus >= Ndis802_11TKIPEnable 
 #ifdef DOT1X_SUPPORT
 	|| wdev->IEEE8021X
@@ -1344,7 +1715,20 @@ VOID ap_cmm_peer_assoc_req_action(
 		(MAC_ADDR_EQUAL(wsc_ctrl->EntryAddr, ZERO_MAC_ADDR)))
 		;
 	else
-#endif /* WSC_V2_SUPPORT */        
+#endif /* WSC_V2_SUPPORT */
+#ifdef WH_EZ_SETUP
+	/*
+		Do not check ACL when easy setup is enabled.
+	*/
+	if (IS_EZ_SETUP_ENABLED(wdev) &&
+		pEntry->easy_setup_enabled) {
+		EZ_DEBUG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("Easy Setup Peer - %02x:%02x:%02x:%02x:%02x:%02x, ignore acl checking.\n",
+					PRINT_MAC(pEntry->Addr)));
+	}
+	else
+#endif /* WH_EZ_SETUP */
+
 	/* set a flag for sending Assoc-Fail response to unwanted STA later. */
 	if (!ApCheckAccessControlList(pAd, ie_list->Addr2, pEntry->func_tb_idx))
 		bACLReject = TRUE;
@@ -1394,8 +1778,39 @@ VOID ap_cmm_peer_assoc_req_action(
 					&ie_list->HTCapability,
 					ie_list->ht_cap_len);
 
+#ifdef WH_EZ_SETUP
+		if (IS_EZ_SETUP_ENABLED(wdev) &&
+			pEntry->easy_setup_enabled) {
+			unsigned short Status = ez_process_assoc_request(wdev, pEntry, isReassoc, Elem->Msg, Elem->MsgLen);
+			if (Status == EZ_STATUS_CODE_UNKNOWN) {
+				StatusCode = MLME_REJ_TIMEOUT;
+#ifdef WAPP_SUPPORT
+				wapp_assoc_fail = MLME_REJECT_TIMEOUT;
+#endif/* WAPP_SUPPORT */
+			} else if (Status == EZ_STATUS_CODE_INVALID_DATA) {
+				StatusCode = MLME_REQUEST_WITH_INVALID_PARAM;
+#ifdef WAPP_SUPPORT
+				wapp_assoc_fail = MLME_REQ_WITH_INVALID_PARAM;
+#endif/* WAPP_SUPPORT */
+			} else if (Status == EZ_STATUS_CODE_LOOP) {
+				StatusCode = MLME_EZ_CONNECTION_LOOP;
+#ifdef WAPP_SUPPORT
+				wapp_assoc_fail = MLME_EZ_CNNCT_LOOP;
+#endif/* WAPP_SUPPORT */
+			}
+			if (StatusCode != MLME_SUCCESS)
+			{
+				goto SendAssocResponse;
+			}
+		}
+#endif /* WH_EZ_SETUP */
+
 	/* 2. qualify this STA's auth_asoc status in the MAC table, decide StatusCode */
 	StatusCode = APBuildAssociation(pAd, pEntry, ie_list, MaxSupportedRate, &Aid);
+#ifdef WAPP_SUPPORT
+	if (StatusCode != MLME_SUCCESS)
+		wapp_assoc_fail = MLME_UNABLE_HANDLE_STA;
+#endif/* WAPP_SUPPORT */
 
 #ifdef DOT11R_FT_SUPPORT
 	if (pEntry->func_tb_idx < pAd->ApCfg.BssidNum)
@@ -1405,7 +1820,10 @@ VOID ap_cmm_peer_assoc_req_action(
 			&& (StatusCode == MLME_SUCCESS))
 			StatusCode = FT_AssocReqHandler(pAd, isReassoc, pFtCfg, pEntry,
 							&ie_list->FtInfo, &FtInfoBuf);
-
+#ifdef WAPP_SUPPORT
+			if (StatusCode != MLME_SUCCESS)
+				wapp_assoc_fail = FT_ERROR;
+#endif/* WAPP_SUPPORT */
 		/* just silencely discard this frame */
 		if (StatusCode == 0xFFFF)
 			goto LabelOK;
@@ -1439,7 +1857,18 @@ VOID ap_cmm_peer_assoc_req_action(
 	if (StatusCode == MLME_ASSOC_REJ_DATA_RATE)
 		RTMPSendWirelessEvent(pAd, IW_STA_MODE_EVENT_FLAG, pEntry->Addr, wdev->wdev_idx, 0);
 
-#ifdef DOT11W_PMF_SUPPORT
+#ifdef WH_EVENT_NOTIFIER
+		if (pEntry && tr_entry && (tr_entry->PortSecured == WPA_802_1X_PORT_SECURED))
+		{
+			EventHdlr pEventHdlrHook = NULL;
+			pEventHdlrHook = GetEventNotiferHook(WHC_DRVEVNT_STA_JOIN);
+			if(pEventHdlrHook && pEntry->wdev)
+				pEventHdlrHook(pAd, pEntry, Elem);
+		}
+#endif /* WH_EVENT_NOTIFIER */
+
+
+#if (defined(DOT11W_PMF_SUPPORT) || defined(WH_EZ_SETUP))
 SendAssocResponse:
 #endif /* DOT11W_PMF_SUPPORT */
 	/* 3. send Association Response */
@@ -1499,6 +1928,9 @@ SendAssocResponse:
 		MgtMacHeaderInit(pAd, &AssocRspHdr, SubType, 0, ie_list->Addr2, 
 							wdev->if_addr, wdev->bssid);
 		StatusCode = MLME_UNSPECIFY_FAIL;
+#ifdef WAPP_SUPPORT
+		wapp_assoc_fail = MLME_UNSPECIFY_FAILURE;
+#endif/* WAPP_SUPPORT */
 		MakeOutgoingFrame(pOutBuffer, &FrameLen,
 			              sizeof(HEADER_802_11), &AssocRspHdr,
 			              2,                        &CapabilityInfoForAssocResp,
@@ -1595,9 +2027,11 @@ SendAssocResponse:
 		/* Insert MDIE. */
 		mdie_ptr = pOutBuffer+FrameLen;
 		mdie_len = 5;
-		FT_InsertMdIE(pAd, pOutBuffer+FrameLen, &FrameLen,
-				FtInfoBuf.MdIeInfo.MdId, FtInfoBuf.MdIeInfo.FtCapPlc);
-
+		/* Insert MdId only if the Peer has sent one */
+		if (FtInfoBuf.MdIeInfo.Len != 0) {
+			FT_InsertMdIE(pAd, pOutBuffer+FrameLen, &FrameLen,
+					FtInfoBuf.MdIeInfo.MdId, FtInfoBuf.MdIeInfo.FtCapPlc);
+		}
 		/* Insert FTIE. */
 		if (FtInfoBuf.FtIeInfo.Len != 0)
 		{
@@ -1646,6 +2080,7 @@ SendAssocResponse:
 			UINT8	ft_mic[FT_MIC_LEN];
 			PFT_FTIE	pFtIe;
 		
+			NdisZeroMemory(ft_mic, sizeof(ft_mic));
 			FT_CalculateMIC(pEntry->Addr, 
 							wdev->bssid, 
 							pEntry->PTK, 
@@ -1663,16 +2098,32 @@ SendAssocResponse:
 			/* Update the MIC field of FTIE */
 			pFtIe = (PFT_FTIE)(ftie_ptr + 2);
 			NdisMoveMemory(pFtIe->MIC, ft_mic, FT_MIC_LEN);
-
-			/* Only first allow install from assoc, later or rekey or instal from auth (backward compatability with not patched clients) */
-			if (pEntry->AllowInsPTK == TRUE) {
-			    WPAInstallPairwiseKey(pAd, pEntry->func_tb_idx, pEntry, TRUE);
-			    pEntry->AllowInsPTK = FALSE;
+			/*Install pairwise key,Update status,set Port as Secured*/
+			if (!IS_FT_STA(pEntry) || (IS_FT_STA(pEntry) &&
+				(NdisEqualMemory(&pEntry->PTK[OFFSET_OF_PTK_TK], zeroFT, LEN_TK) ||
+				!NdisEqualMemory(&pEntry->PTK[OFFSET_OF_PTK_TK], pEntry->LastTK, LEN_TK)))) {
+				WPAInstallPairwiseKey(pAd, pEntry->func_tb_idx, pEntry, TRUE);
+				NdisMoveMemory(pEntry->LastTK, &pEntry->PTK[OFFSET_OF_PTK_TK], LEN_TK);
 			}
-
-			/* set Port as Secured */
+#ifdef MBO_SUPPORT
+			/* YF_FT */
+			if (IS_MBO_ENABLE(wdev))
+				/* update STA bssid & security info to daemon */
+				MboIndicateStaBssidInfo(pAd, wdev, pEntry->Addr);
+#endif/* MBO_SUPPORT */
+			pEntry->WpaState = AS_PTKINITDONE;
 			pEntry->PrivacyFilter = Ndis802_11PrivFilterAcceptAll;
 			tr_entry->PortSecured = WPA_802_1X_PORT_SECURED;
+
+#ifdef WH_EVENT_NOTIFIER				
+			{	/*Hasan Add this event to cover FT case*/
+				EventHdlr pEventHdlrHook = NULL;
+				pEventHdlrHook = GetEventNotiferHook(WHC_DRVEVNT_STA_JOIN);
+				if(pEventHdlrHook && pEntry->wdev)
+				pEventHdlrHook(pAd, pEntry, Elem);
+			}
+#endif	
+
 		}
 
 		/* 	Record the MDIE & FTIE of (re)association response of
@@ -1688,7 +2139,6 @@ SendAssocResponse:
 		}
 	}
 #endif /* DOT11R_FT_SUPPORT */
-
 #ifdef DOT11K_RRM_SUPPORT
 	if (IS_RRM_ENABLE(pAd, pEntry->func_tb_idx))
 		RRM_InsertRRMEnCapIE(pAd, pOutBuffer+FrameLen, &FrameLen, pEntry->func_tb_idx);
@@ -1919,6 +2369,30 @@ SendAssocResponse:
 	}
 #endif /* CONFIG_HOTSPOT_R2 */
 
+#ifdef CONFIG_OWE_SUPPORT
+	if (pEntry->AuthMode == Ndis802_11AuthModeOWE) {
+		ULONG   TmpLen;
+		UCHAR RSNE_EID;
+		UCHAR RSNIE_Len;
+		UCHAR *RSN_IE;
+
+		WPAMakeEntryRSNIE(pAd, wdev->AuthMode, wdev->WepStatus, pEntry);
+		RSNE_EID = IE_WPA2;
+		RSNIE_Len = pEntry->RSNE_Len[0];
+		RSN_IE = pEntry->RSNE_Content[0];
+
+		MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
+					1, &RSNE_EID,
+					1, &RSNIE_Len,
+					RSNIE_Len,
+					RSN_IE,
+					END_OF_ARGS);
+
+		FrameLen += TmpLen;
+		}
+
+#endif
+
 		/* 7.3.2.27 Extended Capabilities IE */
 		{
 		ULONG TmpLen, infoPos;
@@ -1943,6 +2417,17 @@ SendAssocResponse:
 		}
 #endif /* DOT11N_DRAFT3 */
 #endif /* DOT11_N_SUPPORT */
+
+#ifdef CONFIG_DOT11V_WNM
+		if (pMbss->WNMCtrl.WNMBTMEnable)
+			extCapInfo.BssTransitionManmt = 1;
+		if (ie_list->ExtCapInfo.BssTransitionManmt == 1)
+			pEntry->bBSSMantSTASupport = TRUE;
+#endif /* CONFIG_DOT11V_WNM */
+#ifdef DOT11U_INTERWORKING
+	    if (pMbss->GASCtrl.b11U_enable)
+		extCapInfo.interworking = 1;
+#endif/* DOT11U_INTERWORKING */
 
 #ifdef DOT11V_WNM_SUPPORT
 		if (IS_BSS_TRANSIT_MANMT_SUPPORT(pAd, pEntry->func_tb_idx))
@@ -1982,8 +2467,8 @@ SendAssocResponse:
 		if (bNeedAppendExtIE == TRUE)
 		{
 #ifdef RT_BIG_ENDIAN
-			*((UINT32*)(pInfo)) = SWAP32(*((UINT32*)(pInfo)));
-			*((UINT32*)(pInfo+4)) = SWAP32(*((UINT32*)(pInfo+4)));
+		*((UINT32*)(pInfo)) = SWAP32(*((UINT32*)(pInfo)));
+		*((UINT32*)(pInfo+4)) = SWAP32(*((UINT32*)(pInfo+4)));
 #endif
 			MakeOutgoingFrame(pOutBuffer+FrameLen, &TmpLen,
 							1,			&ExtCapIe,
@@ -1993,8 +2478,32 @@ SendAssocResponse:
 			FrameLen += TmpLen;
 		}
 	}
+#ifdef WH_EZ_SETUP
+	/*
+		To prevent old device has trouble to parse MTK vendor IE,
+		insert easy setup IE first.
+	*/
+	if ((StatusCode == MLME_SUCCESS)
+		&& IS_EZ_SETUP_ENABLED(wdev) 
+		&& pEntry->easy_setup_enabled) {
+
+		FrameLen += ez_build_assoc_response_ie(wdev, 
+			pEntry->Addr, &pMbss->GTK[0], LEN_MAX_GTK, pOutBuffer+FrameLen);
+	}
+		//FrameLen += build_vendor_ie(pAd, wdev, (pOutBuffer + FrameLen), SubType);	
+#endif /* WH_EZ_SETUP */
 	
 	/* add Ralink-specific IE here - Byte0.b0=1 for aggregation, Byte0.b1=1 for piggy-back */
+#if defined(MWDS) || defined(WH_EZ_SETUP)
+	FrameLen += build_vendor_ie(pAd, wdev, pOutBuffer+FrameLen
+#ifdef CONFIG_OWE_SUPPORT
+	, VIE_ASSOC_RESP
+#endif
+#ifdef WH_EZ_SETUP
+	, SubType
+#endif
+	);
+#else
 {
 	ULONG TmpLen;
 	UCHAR RalinkSpecificIe[9] = {IE_VENDOR_SPECIFIC, 7, 0x00, 0x0c, 0x43, 0x00, 0x00, 0x00, 0x00};
@@ -2013,7 +2522,13 @@ SendAssocResponse:
 	FrameLen += TmpLen;
 
 }
+#endif
   
+#ifdef MBO_SUPPORT
+	if (IS_MBO_ENABLE(wdev))
+		MakeMboOceIE(pAd, wdev, pOutBuffer+FrameLen, &FrameLen, MBO_FRAME_TYPE_ASSOC_RSP);
+#endif/* MBO_SUPPORT */
+
 #ifdef WSC_AP_SUPPORT
 	if (pEntry->bWscCapable)
 	{
@@ -2035,6 +2550,36 @@ SendAssocResponse:
 	}
 #endif /* WSC_AP_SUPPORT */
   
+
+#ifdef CONFIG_OWE_SUPPORT
+	if ((pEntry->AuthMode == Ndis802_11AuthModeOWE) && (StatusCode == MLME_SUCCESS)) {
+		BOOLEAN need_ecdh_ie = FALSE;
+		INT CacheIdx;/* Key cache */
+
+		pPmkid = WPA_ExtractSuiteFromRSNIE(ie_list->RSN_IE, ie_list->RSNIE_Len, PMKID_LIST, &pmkid_count);
+		if (pPmkid != NULL) {
+			CacheIdx = RTMPSearchPMKIDCache(pAd, pEntry->func_tb_idx, pEntry->Addr);
+			if ((CacheIdx == -1) ||
+				((RTMPEqualMemory(pPmkid,
+				&pMbss->PMKIDCache.BSSIDInfo[CacheIdx].PMKID,
+				LEN_PMKID)) == 0)) {
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("%s: AKM_OWE_Entry PMKID not found, do normal ECDH procedure\n",
+					__func__));
+				need_ecdh_ie = TRUE;
+			}
+		} else
+			need_ecdh_ie = TRUE;
+
+		if (need_ecdh_ie == TRUE) {
+			FrameLen +=  build_owe_dh_ie(pAd,
+						pEntry,
+						(UCHAR *)pOutBuffer + FrameLen,
+						pEntry->owe.last_try_group);
+		}
+	}
+#endif /*CONFIG_OWE_SUPPORT*/
+
 	MiniportMMRequest(pAd, 0, pOutBuffer, FrameLen);
 	MlmeFreeMemory(pAd, (PVOID) pOutBuffer);
 
@@ -2058,14 +2603,22 @@ SendAssocResponse:
 		/*PFRAME_802_11 Fr = (PFRAME_802_11)Elem->Msg; */
 /*		POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie; */
 
-		/* send association ok message to IAPPD */
-		IAPP_L2_Update_Frame_Send(pAd, pEntry->Addr, pEntry->wdev->wdev_idx);
-		DBGPRINT(RT_DEBUG_TRACE, ("####### Send L2 Frame Mac=%02x:%02x:%02x:%02x:%02x:%02x\n",
-								  PRINT_MAC(pEntry->Addr)));
-
+#ifdef WH_EZ_SETUP
+		if( !IS_EZ_SETUP_ENABLED(wdev) )
+#endif	
+		{
+			/* send association ok message to IAPPD */
+			IAPP_L2_Update_Frame_Send(pAd, pEntry->Addr, pEntry->wdev->wdev_idx);
+			DBGPRINT(RT_DEBUG_TRACE, ("####### Send L2 Frame Mac=%02x:%02x:%02x:%02x:%02x:%02x\n",
+									  PRINT_MAC(pEntry->Addr)));
+		}
 /*		SendSingalToDaemon(SIGUSR2, pObj->IappPid); */
 
-#ifdef DOT11R_FT_SUPPORT		
+#ifdef DOT11R_FT_SUPPORT
+#ifdef WH_EZ_SETUP
+	if (!IS_EZ_SETUP_ENABLED(wdev) /*&& !ez_is_triband()*/)	// Arvind not reqiured triband check.
+#endif
+	{
 		/*
 			Do not do any check here.
 			We need to send MOVE-Req frame to AP1 even open mode.
@@ -2083,6 +2636,7 @@ SendAssocResponse:
 			FT_KDP_EVENT_INFORM(pAd, pEntry->func_tb_idx, FT_KDP_SIG_FT_REASSOCIATION,
 								&EvtReAssoc, sizeof(EvtReAssoc), NULL);
 		}
+	}
 #endif /* DOT11R_FT_SUPPORT */
 		
 #endif /* IAPP_SUPPORT */
@@ -2131,11 +2685,63 @@ SendAssocResponse:
 			;
 		}
 		else
-#endif /* DOT11R_FT_SUPPORT */	
+#endif /* DOT11R_FT_SUPPORT */
+#ifdef WH_EZ_SETUP
+	if (IS_EZ_SETUP_ENABLED(wdev) &&
+		pEntry->easy_setup_enabled) {
+		ez_port_secured(pAd, pEntry, pEntry->func_tb_idx, TRUE);
+	}
+	else
+#endif /* WH_EZ_SETUP */
 		/* enqueue a EAPOL_START message to trigger EAP state machine doing the authentication */
-	    if ((pEntry->AuthMode == Ndis802_11AuthModeWPAPSK) || 
-			(pEntry->AuthMode == Ndis802_11AuthModeWPA2PSK))
-    	{
+
+
+	if ((pEntry->AuthMode == Ndis802_11AuthModeWPAPSK) ||
+		(pEntry->AuthMode == Ndis802_11AuthModeWPA2PSK)
+#if defined(DOT11_SAE_SUPPORT) || defined(CONFIG_OWE_SUPPORT)
+		|| (pEntry->AuthMode == Ndis802_11AuthModeWPA3PSK)
+		|| (pEntry->AuthMode == Ndis802_11AuthModeOWE)
+#endif
+		) {
+
+#if defined(DOT11_SAE_SUPPORT) || defined(CONFIG_OWE_SUPPORT)
+
+		if (pEntry->AuthMode == Ndis802_11AuthModeWPA3PSK ||
+			pEntry->AuthMode == Ndis802_11AuthModeOWE) {
+			pPmkid = WPA_ExtractSuiteFromRSNIE(ie_list->RSN_IE,
+					ie_list->RSNIE_Len,
+					PMKID_LIST,
+					&pmkid_count);
+
+			if (pPmkid != NULL) {
+				INT CacheIdx;
+
+				CacheIdx = RTMPSearchPMKIDCache(pAd, pEntry->func_tb_idx, pEntry->Addr);
+				if (CacheIdx != -1
+					&& (RTMPEqualMemory(pPmkid,
+					&pMbss->PMKIDCache.BSSIDInfo[CacheIdx].PMKID[0], LEN_PMKID))) {
+
+					pEntry->pmkid = pPmkid;
+					NdisMoveMemory(pEntry->PMK, pMbss->PMKIDCache.BSSIDInfo[CacheIdx].PMK, LEN_PMK);
+					pEntry->PMKID_CacheIdx = CacheIdx;
+					MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
+						("ASSOC - 2.PMKID matched and start key cache algorithm\n"));
+				} else {
+					pEntry->pmkid = NULL;
+					pEntry->PMKID_CacheIdx = ENTRY_NOT_FOUND;
+					MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
+						("ASSOC - 2.PMKID not found\n"));
+				}
+
+
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					("ASSOC - CacheIdx = %d\n",
+					CacheIdx));
+
+			}
+		}
+#endif
+
 #ifdef WSC_AP_SUPPORT
             /*
                 In WPA-PSK mode,
@@ -2169,6 +2775,12 @@ SendAssocResponse:
 				)
 			{
         		/* Enqueue a EAPOL-start message with the pEntry */
+#if defined(DOT11_SAE_SUPPORT) || defined(CONFIG_OWE_SUPPORT)
+
+			if ((pEntry->AuthMode != Ndis802_11AuthModeWPA3PSK)
+				&& (pEntry->AuthMode != Ndis802_11AuthModeOWE))
+				NdisMoveMemory(&pEntry->PMK, &pMbss->PMK, LEN_PMK);
+#endif
         		pEntry->EnqueueEapolStartTimerRunning = EAPOL_START_PSK;
         		RTMPSetTimer(&pEntry->EnqueueStartForPSKTimer, ENQUEUE_EAPOL_START_TIMER);
 			}
@@ -2278,10 +2890,65 @@ SendAssocResponse:
 			}	
         }
 
+
+#if defined(MWDS) || defined(MAP_SUPPORT) || defined(WAPP_SUPPORT)
+		if(tr_entry && (tr_entry->PortSecured == WPA_802_1X_PORT_SECURED))
+        {
+#ifdef MWDS
+			MWDSAPPeerEnable(pAd, pEntry);
+#endif
+#if defined(MAP_SUPPORT) && defined(A4_CONN)
+			map_a4_peer_enable(pAd, pEntry, TRUE);
+#endif /* MAP_SUPPORT */
+#ifdef WAPP_SUPPORT
+			wapp_send_cli_join_event(pAd, pEntry);
+#endif
+        }
+#endif /* MWDS */
+
+
+#ifdef WH_EZ_SETUP
+#ifdef IAPP_SUPPORT
+		if( IS_EZ_SETUP_ENABLED(wdev) /*|| ez_is_triband()*/){
+			/* send association ok message to IAPPD */
+			EZ_DEBUG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+					("####### Send L2 Frame Mac=%02x:%02x:%02x:%02x:%02x:%02x\n",
+								  PRINT_MAC(pEntry->Addr)));
+			IAPP_L2_Update_Frame_Send(pAd, pEntry->Addr, pEntry->wdev->wdev_idx);
+		}
+#endif
+#endif
+
 	}
 
 LabelOK:
+#ifdef BAND_STEERING
+		if ((pAd->ApCfg.BandSteering)
+#ifdef WH_EZ_SETUP
+			&& !((pEntry != NULL) && (pEntry->easy_setup_enabled == TRUE) && IS_EZ_SETUP_ENABLED(wdev))
+#endif
+
+		) {		
+			BndStrg_UpdateEntry(pAd, pEntry, ie_list, TRUE);
+		}
+#endif
+
+#ifdef WH_EZ_SETUP
+#ifdef NEW_CONNECTION_ALGO
+		if ((wdev != NULL) && (StatusCode != MLME_SUCCESS) && IS_EZ_SETUP_ENABLED(wdev)
+			&& (ez_is_connection_allowed(wdev) == TRUE)){
 	
+			ez_update_connection(pAd, wdev);
+		}
+	
+#endif
+#endif
+assoc_check:
+#ifdef WAPP_SUPPORT
+		if (StatusCode != MLME_SUCCESS && wapp_assoc_fail != NOT_FAILURE)
+			wapp_send_sta_connect_rejected(pAd, wdev, ie_list->Addr2,
+				ie_list->Addr1, wapp_cnnct_stage, wapp_assoc_fail);
+#endif/* WAPP_SUPPORT */
 	if (ie_list != NULL)
 		os_free_mem(NULL, ie_list);
 
@@ -2336,11 +3003,10 @@ VOID APPeerReassocReqAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
         TRUE if all parameters are OK, FALSE otherwise
     ==========================================================================
  */
-static BOOLEAN PeerDisassocReqSanity(
+BOOLEAN PeerDisassocReqSanity(
     IN PRTMP_ADAPTER pAd, 
     IN VOID *Msg, 
     IN ULONG MsgLen, 
-    OUT PUCHAR pDA,
     OUT PUCHAR pAddr2, 
     OUT	UINT16	*SeqNum,
     OUT USHORT *Reason) 
@@ -2348,7 +3014,6 @@ static BOOLEAN PeerDisassocReqSanity(
     PFRAME_802_11 Fr = (PFRAME_802_11)Msg;
 
     COPY_MAC_ADDR(pAddr2, &Fr->Hdr.Addr2);
-	COPY_MAC_ADDR(pDA, &Fr->Hdr.Addr1);
 	*SeqNum = Fr->Hdr.Sequence;
     NdisMoveMemory(Reason, &Fr->Octet[0], 2);
 
@@ -2367,14 +3032,13 @@ static BOOLEAN PeerDisassocReqSanity(
 VOID APPeerDisassocReqAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
 	UCHAR Addr2[MAC_ADDR_LEN];
-	UCHAR Addr1[MAC_ADDR_LEN];
 	USHORT Reason;
 	UINT16 SeqNum;		
 	MAC_TABLE_ENTRY *pEntry;
 	struct wifi_dev *wdev;
 
 	DBGPRINT(RT_DEBUG_TRACE, ("ASSOC - 1 receive DIS-ASSOC request \n"));
-	if (! PeerDisassocReqSanity(pAd, Elem->Msg, Elem->MsgLen, Addr1, Addr2, &SeqNum, &Reason))
+	if (! PeerDisassocReqSanity(pAd, Elem->Msg, Elem->MsgLen, Addr2, &SeqNum, &Reason))
 		return;
 
 	DBGPRINT(RT_DEBUG_TRACE, ("ASSOC - receive DIS-ASSOC(seq-%d) request from %02x:%02x:%02x:%02x:%02x:%02x, reason=%d\n", 
@@ -2387,17 +3051,8 @@ VOID APPeerDisassocReqAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 	if (pEntry->wcid < MAX_LEN_OF_MAC_TABLE)
     {
 
-		wdev = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev;
-		/*
-			iPhone sometimes sends disassoc frame which DA is old AP and BSSID is new AP.
-			@2016/1/26
-		*/
-		if (!MAC_ADDR_EQUAL(wdev->if_addr, Addr1)) {
-			DBGPRINT(RT_DEBUG_TRACE, ("ASSOC - The DA of this DIS-ASSOC request is %02x:%02x:%02x:%02x:%02x:%02x, ignore.\n", 
-				PRINT_MAC(Addr1)));
-			return;
-		}
 #ifdef DOT1X_SUPPORT
+		wdev = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev;
 		/* Notify 802.1x daemon to clear this sta info */
 		if (pEntry->AuthMode == Ndis802_11AuthModeWPA || 
 			pEntry->AuthMode == Ndis802_11AuthModeWPA2 ||
@@ -2427,6 +3082,20 @@ VOID APPeerDisassocReqAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 
         ApLogEvent(pAd, Addr2, EVENT_DISASSOCIATED);
 
+#ifdef WIFI_DIAG
+		if (pEntry && IS_ENTRY_CLIENT(pEntry))
+			DiagConnError(pAd, pEntry->func_tb_idx, pEntry->Addr,
+				DIAG_CONN_DEAUTH, REASON_DEAUTH_STA_LEAVING);
+#endif
+#ifdef CONN_FAIL_EVENT
+		if (IS_ENTRY_CLIENT(pEntry))
+			ApSendConnFailMsg(pAd,
+				pAd->ApCfg.MBSSID[pEntry->func_tb_idx].Ssid,
+				pAd->ApCfg.MBSSID[pEntry->func_tb_idx].SsidLen,
+				pEntry->Addr,
+				REASON_DEAUTH_STA_LEAVING);
+#endif
+
 		MacTableDeleteEntry(pAd, pEntry->wcid, Addr2);
 
 #ifdef MAC_REPEATER_SUPPORT
@@ -2447,6 +3116,18 @@ VOID APPeerDisassocReqAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 			}
 		}
 #endif /* MAC_REPEATER_SUPPORT */
+
+
+#ifdef WH_EVENT_NOTIFIER
+		{
+			EventHdlr pEventHdlrHook = NULL;
+			pEventHdlrHook = GetEventNotiferHook(WHC_DRVEVNT_STA_LEAVE);
+			if(pEventHdlrHook && wdev)
+				pEventHdlrHook(pAd, wdev, Addr2, Elem->Channel);
+		}
+#endif /* WH_EVENT_NOTIFIER */
+
+
     }
 }
 
@@ -2463,14 +3144,19 @@ VOID MbssKickOutStas(RTMP_ADAPTER *pAd, INT apidx, USHORT Reason)
 {
 	INT i;
 	PMAC_TABLE_ENTRY pEntry;
-
+#ifdef MBO_SUPPORT
+		MboIndicateStaDisassocToDaemon(pAd, NULL, MBO_MSG_AP_TERMINATION);
+#endif/* MBO_SUPPORT */
 	for (i = 0; i < MAX_LEN_OF_MAC_TABLE; i++)
 	{
 		pEntry = &pAd->MacTab.Content[i];
 		if (pEntry && IS_ENTRY_CLIENT(pEntry) && pEntry->func_tb_idx == apidx)
 			APMlmeKickOutSta(pAd, pEntry->Addr, pEntry->wcid, Reason);
 	}
-
+		/* mbo wait for max 500ms and check all IsKeep is zero */
+#ifdef MBO_SUPPORT
+		MboWaitAllStaGone(pAd, apidx);
+#endif/* MBO_SUPPORT */
 	return;
 }
 
@@ -2543,6 +3229,19 @@ VOID APMlmeKickOutSta(RTMP_ADAPTER *pAd, UCHAR *pStaAddr, UCHAR Wcid, USHORT Rea
 	                      END_OF_ARGS);
 	    MiniportMMRequest(pAd, 0, pOutBuffer, FrameLen);
 	    MlmeFreeMemory(pAd, pOutBuffer);
+#ifdef WIFI_DIAG
+		if (IS_ENTRY_CLIENT(pEntry))
+			DiagConnError(pAd, pEntry->func_tb_idx, pEntry->Addr,
+				DIAG_CONN_DEAUTH, Reason);
+#endif
+#ifdef CONN_FAIL_EVENT
+		if (IS_ENTRY_CLIENT(pEntry))
+			ApSendConnFailMsg(pAd,
+				pAd->ApCfg.MBSSID[pEntry->func_tb_idx].Ssid,
+				pAd->ApCfg.MBSSID[pEntry->func_tb_idx].SsidLen,
+				pEntry->Addr,
+				Reason);
+#endif
 		MacTableDeleteEntry(pAd, Aid, pStaAddr);
     }
 }
@@ -2617,6 +3316,11 @@ VOID APMlmeDisassocReqAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
 	MLME_DISASSOC_REQ_STRUCT *DisassocReq = (MLME_DISASSOC_REQ_STRUCT *)(Elem->Msg);
 
+#ifdef WH_EZ_SETUP
+		if(IS_ADPTR_EZ_SETUP_ENABLED(pAd))
+			EZ_DEBUG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("APMlmeDisassocReqAction()\n"));
+#endif
+
 	APMlmeKickOutSta(pAd, DisassocReq->Addr, Elem->Wcid, DisassocReq->Reason);
 }
 
@@ -2643,8 +3347,20 @@ VOID APCls3errAction(RTMP_ADAPTER *pAd, ULONG Wcid, HEADER_802_11 *pHeader)
 	if (Wcid < MAX_LEN_OF_MAC_TABLE)
 		pEntry = &(pAd->MacTab.Content[Wcid]);
 
-    if (pEntry)
-    {
+	if (pEntry) {
+#ifdef WIFI_DIAG
+		if (IS_ENTRY_CLIENT(pEntry))
+			DiagConnError(pAd, pEntry->func_tb_idx, pEntry->Addr,
+				DIAG_CONN_DEAUTH, Reason);
+#endif
+#ifdef CONN_FAIL_EVENT
+		if (IS_ENTRY_CLIENT(pEntry))
+			ApSendConnFailMsg(pAd,
+				pAd->ApCfg.MBSSID[pEntry->func_tb_idx].Ssid,
+				pAd->ApCfg.MBSSID[pEntry->func_tb_idx].SsidLen,
+				pEntry->Addr,
+				Reason);
+#endif
         /*ApLogEvent(pAd, pAddr, EVENT_DISASSOCIATED); */
 		MacTableDeleteEntry(pAd, pEntry->wcid, pHeader->Addr2);
     }

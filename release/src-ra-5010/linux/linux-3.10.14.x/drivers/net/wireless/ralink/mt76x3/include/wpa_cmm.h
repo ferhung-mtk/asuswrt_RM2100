@@ -54,7 +54,8 @@
 #define MT2_EAPOLLogoff              2
 #define MT2_EAPOLKey                 3
 #define MT2_EAPOLASFAlert            4
-#define MAX_WPA_MSG                  5
+#define MT2_EAPOLTIMEOUT			5
+#define MAX_WPA_MSG                  6
 
 #define WPA_FUNC_SIZE                (MAX_WPA_PTK_STATE * MAX_WPA_MSG)
 
@@ -223,4 +224,17 @@ typedef struct _CMD_802_11_KEY {
     UINT8      aucKeyMaterial[32];
     UINT8      aucKeyRsc[16];
 } CMD_802_11_KEY, *P_CMD_802_11_KEY;
+#ifdef CONFIG_SECURITY_IMPROVEMENT_SUPPORT
+enum RSN_FIELD {
+	RSN_FIELD_NONE = 0,
+	RSN_FIELD_GROUP_CIPHER,
+	RSN_FIELD_PAIRWISE_CIPHER,
+	RSN_FIELD_AKM,
+	RSN_FIELD_RSN_CAP,
+	RSN_FIELD_PMKID,
+	RSN_FIELD_GROUP_MGMT_CIPHER,
+	RSN_FIELD_EXTENSIBLE_ELE
+};
+#endif
+
 #endif /* WPA_CMM_H */

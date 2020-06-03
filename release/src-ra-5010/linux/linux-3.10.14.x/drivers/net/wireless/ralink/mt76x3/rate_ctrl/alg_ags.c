@@ -288,7 +288,7 @@ VOID ApMlmeDynamicTxRateSwitchingAGS(
 #endif /* defined(RTMP_MAC) || defined(RLT_MAC) */
 	}
 
-	AGSStatisticsInfo.RSSI = RTMPAvgRssi(pAd, &pEntry->RssiSample);
+	AGSStatisticsInfo.RSSI = RTMPAvgRssi(pAd, &pEntry->RssiSample);;
 	AGSStatisticsInfo.TxErrorRatio = TxErrorRatio;
 	AGSStatisticsInfo.AccuTxTotalCnt = TxTotalCnt;
 	AGSStatisticsInfo.TxTotalCnt = TxTotalCnt;

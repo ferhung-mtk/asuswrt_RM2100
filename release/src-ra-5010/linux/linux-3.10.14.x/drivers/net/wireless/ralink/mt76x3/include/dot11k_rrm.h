@@ -83,37 +83,6 @@
 #define RRM_TX_STREAM_SUBID_TRIGGER_REPORT		1
 #define RRM_TX_STREAM_SUBID_VENDOR				221
 
-#ifndef DOT11R_FT_SUPPORT
-#define FT_MDID_LEN					2
-#define IE_FT_MDIE				54
-
-/*
-** MDIE: Mobile Domain IE.
-*/
-typedef union GNU_PACKED _FT_CAP_AND_POLICY
-{
-	struct GNU_PACKED
-	{
-#ifdef RT_BIG_ENDIAN
-	UINT8 :6;
-	UINT8 RsrReqCap:1;
-	UINT8 FtOverDs:1;
-#else
-	UINT8 FtOverDs:1;
-	UINT8 RsrReqCap:1;
-	UINT8 :6;
-#endif
-	} field;
-	UINT8 word;
-} FT_CAP_AND_POLICY, *PFT_CAP_AND_POLICY;
-
-typedef struct GNU_PACKED _FT_MDIE
-{
-	UINT8 MdId[FT_MDID_LEN];
-	FT_CAP_AND_POLICY FtCapPlc;
-} FT_MDIE, *PFT_MDIE;
-#endif /* !DOT11R_FT_SUPPORT */
-
 typedef struct GNU_PACKED _RRM_SUBFRAME_INFO
 {
 	UINT8 SubId;
@@ -151,7 +120,7 @@ typedef struct GNU_PACKED _RRM_BEACON_REP_INFO
 {
 	UINT8 RegulatoryClass;
 	UINT8 ChNumber;
-	UINT8 ActualMeasureStartTime[8];
+	UINT64 ActualMeasureStartTime;
 	UINT16 MeasureDuration;
 	UINT8 RepFrameInfo;
 	UINT8 RCPI;

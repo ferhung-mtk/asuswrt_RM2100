@@ -1,5 +1,7 @@
 #The word of "Default" must not be removed
 Default
+ed_th_nonCE=52
+Cts2SelfTh=1500
 CountryRegion=5
 CountryRegionABand=7
 CountryCode=TW
@@ -142,3 +144,4 @@ PMFMFPC=0
 PMFMFPR=0
 PMFSHA256=0
 LoadCodeMethod=0
+ed_th_nonCE=52

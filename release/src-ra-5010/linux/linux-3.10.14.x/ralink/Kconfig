@@ -389,7 +389,7 @@ endchoice
 #source "drivers/net/wireless/mt_wifi/embedded/Kconfig"
 #source "drivers/net/wireless/mt_wifi_7615E_4411/embedded/Kconfig"
 source "drivers/net/wireless/ralink/mt7615/embedded/Kconfig"
-source "drivers/net/wireless/ralink/mt76x3_ap/Kconfig"
+source "drivers/net/wireless/ralink/mt76x3/Kconfig"
 #source "drivers/net/wireless/mt_wifi_7615E_4421/embedded/Kconfig"
 
 endif # WIFI_DRIVER

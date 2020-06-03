@@ -63,9 +63,9 @@ typedef VOID	pregs;
  ***********************************************************************************/
 #ifdef CONFIG_AP_SUPPORT
 #ifdef RTMP_MAC_PCI
-#define AP_PROFILE_PATH			"/etc/Wireless/RT2860/RT2860.dat"
+#define AP_PROFILE_PATH			"/etc/Wireless/RT2860AP/RT2860AP.dat"
 #define AP_RTMP_FIRMWARE_FILE_NAME "/etc/Wireless/RT2860AP/RT2860AP.bin"
-#define AP_DRIVER_VERSION			"4.0.1.0_rev2"
+#define AP_DRIVER_VERSION			"3.0.0.0"
 #ifdef MULTIPLE_CARD_SUPPORT
 #define CARD_INFO_PATH			"/etc/Wireless/RT2860AP/RT2860APCard.dat"
 #endif /* MULTIPLE_CARD_SUPPORT */
@@ -401,10 +401,10 @@ do{                                   \
 	printk Fmt;					\
 }
 #else
-#define DBGPRINT(Level, Fmt)		do{}while(0)
-#define DBGPRINT_RAW(Level, Fmt)	do{}while(0)
-#define DBGPRINT_S(Fmt)			do{}while(0)
-#define DBGPRINT_ERR(Fmt)		do{}while(0)
+#define DBGPRINT(Level, Fmt)
+#define DBGPRINT_RAW(Level, Fmt)
+#define DBGPRINT_S(Fmt)
+#define DBGPRINT_ERR(Fmt)
 #endif
 
 #undef  ASSERT
@@ -757,12 +757,18 @@ extern ULONG RtmpOsGetUnalignedlong(
 
 
 #define CB_OFF  10
+#if (MT7615_MT7603_COMBO_FORWARDING == 1)
+#define CB_LEN	35
+#endif
 
 #define PACKET_CB_ASSIGN(_p, _offset)	\
 	(*((UINT8 *)_p + RTPktOffsetCB + _offset))
 
 #define PACKET_CB(_p, _offset)	\
 	(*((UINT8 *)_p + RTPktOffsetCB + CB_OFF + _offset))
+
+
+
 
 /***********************************************************************************
  *	Other function prototypes definitions

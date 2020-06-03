@@ -248,9 +248,6 @@ static inline void rt2860_int_disable(RTMP_ADAPTER *pAd, unsigned int mode)
 {
 	UINT32 regValue;
 	// TODO: shiang-7603
-
-
-
 	pAd->int_disable_mask |= mode;
 	regValue = pAd->int_enable_reg & ~(pAd->int_disable_mask);
 
@@ -390,6 +387,18 @@ DBGPRINT(RT_DEBUG_FPGA, ("-->%s():\n", __FUNCTION__));
 	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
 
 	bReschedule = rtmp_rx_done_handle(pAd);
+
+#ifdef CONFIG_BA_REORDER_MONITOR
+	if (pAd->BATable.ba_timeout_check) {
+		ba_timeout_flush(pAd);	
+	/*
+		if (!((pAd->int_pending & INT_RX) || 
+				(pAd->int_disable_mask & INT_RX)))
+			return;
+	*/
+	}
+#endif
+
 
 #ifdef UAPSD_SUPPORT
 	UAPSD_TIMING_RECORD_STOP();
@@ -1299,7 +1308,10 @@ VOID RTMPHandleInterrupt(VOID *pAdSrc)
 //---Add by Carter
 	POS_COOKIE pObj;
 	unsigned long flags=0;
-	UINT32 INT_RX_DATA = 0, INT_RX_CMD=0, TxCoherent = 0, RxCoherent = 0, FifoStaFullInt = 0;
+	UINT32 INT_RX_DATA = 0, INT_RX_CMD=0, TxCoherent = 0, RxCoherent = 0;
+#if defined(RTMP_MAC) || defined(RLT_MAC)
+	UINT32 FifoStaFullInt = 0;
+#endif
 	UINT32 INT_MGMT_DLY = 0, INT_HCCA_DLY = 0, INT_AC3_DLY = 0, INT_AC2_DLY = 0, INT_AC1_DLY = 0, INT_AC0_DLY = 0, INT_BMC_DLY = 0;
 #if defined(CONFIG_AP_SUPPORT) && defined(CARRIER_DETECTION_SUPPORT)
 	UINT32 RadarInt = 0;
@@ -1626,6 +1638,7 @@ redo:
 	}
 
 	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+#if defined(RTMP_MAC) || defined(RLT_MAC)
 	if (IntSource & FifoStaFullInt)
 	{
 		if ((pAd->int_disable_mask & FifoStaFullInt) == 0)
@@ -1635,6 +1648,7 @@ redo:
 		}
 		pAd->int_pending |= FifoStaFullInt;
 	}
+#endif
 
 	if (IntSource & INT_MGMT_DLY)
 	{
@@ -1980,6 +1994,14 @@ VOID RTMPInitPCIeDevice(RT_CMD_PCIE_INIT *pConfig, VOID *pAdSrc)
 	RtmpRaDevCtrlInit(pAd, pAd->infType);
 }
 
+struct device *rtmp_get_dev(void *ad)
+{
+	struct device *dev = NULL;
+	RTMP_ADAPTER *pAd = (RTMP_ADAPTER *)ad;
+	POS_COOKIE obj = (POS_COOKIE)pAd->OS_Cookie;
+	dev = (struct device *)(&(((struct pci_dev *)(obj->pci_dev))->dev));
+	return dev;
+}
 
 
 #endif /* RTMP_MAC_PCI */

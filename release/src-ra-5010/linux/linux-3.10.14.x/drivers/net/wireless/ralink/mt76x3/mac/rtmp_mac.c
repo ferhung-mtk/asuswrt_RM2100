@@ -95,7 +95,6 @@ VOID dump_tmac_info(RTMP_ADAPTER *pAd, UCHAR *tmac_info)
 
 VOID dump_rmac_info(RTMP_ADAPTER *pAd, UCHAR *rmac_info)
 {
-#ifdef DBG
 	RXWI_STRUC *pRxWI = (RXWI_STRUC *)rmac_info;
 
 	hex_dump("RxWI Raw Data", (UCHAR *)pRxWI, pAd->chipCap.RXWISize);
@@ -110,7 +109,6 @@ VOID dump_rmac_info(RTMP_ADAPTER *pAd, UCHAR *rmac_info)
 	if (pAd->chipCap.hif_type == HIF_RTMP)
 		dump_rtmp_rxwi(pAd, pRxWI);
 #endif /* RTMP_MAC */
-#endif
 }
 
 
@@ -148,7 +146,7 @@ static VOID ClearTxRingClientAck(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 
 #ifdef RLT_MAC
 	if (pAd->chipCap.hif_type == HIF_RLT) {
-		DBGPRINT(RT_DEBUG_OFF, ("%s(): TBD for this function!\n", __FUNCTION__));
+		DBGPRINT(RT_DEBUG_OFF, ("%s(): TBD for this function!\n", __FUNCTION__));
 	}
 #endif /* RLT_MAC */
 
@@ -894,15 +892,12 @@ VOID write_tmac_info(
 #endif /* RTMP_MAC */
 
 	NdisMoveMemory(pOutTxWI, &TxWI, TXWISize);
-
-#ifdef DBG
 //+++Add by shiang for debug
 if (0){
 	hex_dump("TxWI", (UCHAR *)pOutTxWI, TXWISize);
 	dump_tmac_info(pAd, (UCHAR *)pOutTxWI);
 }
 //---Add by shiang for debug
-#endif
 }
 
 

@@ -122,14 +122,20 @@ UINT32 TYPE_FUNC FT_RIC_ResourceRequestHandle(
 	/* init */
 	pBufReqElm = pBufReq;
 	pBufRspElm = pBufRsp;
+	if (pRspLen == NULL)
+	{
+		DBGPRINT(RT_DEBUG_ERROR,
+				("ft_ric> (ResourceRequestHandle) Error! NULL pointer!\n"));
+		return 0;
+	}
 	*pRspLen = 0;
 	HandledSize = 0;
 
 	/* sanity check */
 	if ((pCdb == NULL) ||
 		(pBufReq == NULL) ||
-		(pBufRsp == NULL) ||
-		(pRspLen == NULL))
+		(pBufRsp == NULL)
+		)
 	{
 		DBGPRINT(RT_DEBUG_ERROR,
 				("ft_ric> (ResourceRequestHandle) Error! NULL pointer!\n"));

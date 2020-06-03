@@ -73,7 +73,11 @@ RTMP_DECLARE_DRV_OPS_FUNCTION(pci);
 #else
 
 #ifdef MT_MAC
-#define RTMP_DRV_NAME   "mt7603_drv"
+#if defined(CONFIG_SECOND_IF_MT7615E) || defined(CONFIG_FIRST_IF_MT7615E) || defined(CONFIG_SECOND_IF_MT7663E)
+#define RTMP_DRV_NAME   "rlt_drv"
+#else
+#define RTMP_DRV_NAME   "mt_drv"
+#endif /* CONFIG_SECOND_IF_MT7615E */
 #else
 #define RTMP_DRV_NAME	"rt2860"
 #endif /* RTMP_MAC_USB */
@@ -442,18 +446,22 @@ extern RTMP_USB_CONFIG *pRtmpUsbConfig;
 #ifdef RTMP_MAC_PCI
 #ifdef MEMORY_OPTIMIZATION
 #define TX_RING_SIZE            64
-#define RX_RING_SIZE            64
 #define MGMT_RING_SIZE          32
+#define RX_RING_SIZE            64
 #else
 #ifdef DOT11_VHT_AC
-#define TX_RING_SIZE            256
-#define RX_RING_SIZE            256
+#define TX_RING_SIZE            256 /* 64 */ /*64 */
+#define RX_RING_SIZE            256 /*64 */
 #else
-#define TX_RING_SIZE            64
+#ifdef MEMORY_SLIM_SUPPORT
+#define TX_RING_SIZE            64 /*64 */
+#else
+#define TX_RING_SIZE            220 /*220,default */
+#endif
 #ifdef BB_SOC
-#define RX_RING_SIZE            64
+#define RX_RING_SIZE            64 
 #else
-#define RX_RING_SIZE            128
+#define RX_RING_SIZE            128 /*64 */
 #endif
 #endif /* DOT11_VHT_AC */
 #ifdef BB_SOC
@@ -470,11 +478,6 @@ extern RTMP_USB_CONFIG *pRtmpUsbConfig;
 
 
 #ifdef MT_MAC
-#ifdef MEMORY_OPTIMIZATION
-#define RX1_RING_SIZE		32
-#else
-#define RX1_RING_SIZE		64
-#endif /* MEMORY_OPTIMIZATION */
 #define BCN_RING_SIZE		20
 #endif /* MT_MAC */
 

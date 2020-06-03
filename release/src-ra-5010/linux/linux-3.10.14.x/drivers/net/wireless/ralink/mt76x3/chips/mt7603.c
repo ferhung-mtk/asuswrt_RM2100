@@ -75,7 +75,7 @@ static void mt7603_switch_channel(RTMP_ADAPTER *pAd, UCHAR channel, BOOLEAN scan
 	pAd->LatchRfRegs.Channel = channel;
 
 
-	DBGPRINT(RT_DEBUG_TRACE,
+	DBGPRINT(RT_DEBUG_OFF,
 			("%s(): Switch to Ch#%d(%dT%dR), BBP_BW=%d\n",
 			__FUNCTION__,
 			channel,
@@ -174,24 +174,24 @@ static VOID mt7603_init_mac_cr(RTMP_ADAPTER *pAd)
 	/* A-MPDU Agg limit control */
 	RTMP_IO_READ32(pAd, AGG_AALCR, &mac_val);
 	mac_val &= ~AC0_AGG_LIMIT_MASK;
-	mac_val |= AC0_AGG_LIMIT(21);
+	mac_val |= AC0_AGG_LIMIT(24); //modify from 21, 20171207
 	mac_val &= ~AC1_AGG_LIMIT_MASK;
-	mac_val |= AC1_AGG_LIMIT(21);
+	mac_val |= AC1_AGG_LIMIT(24);
 	mac_val &= ~AC2_AGG_LIMIT_MASK;
-	mac_val |= AC2_AGG_LIMIT(21);
+	mac_val |= AC2_AGG_LIMIT(24);
 	mac_val &= ~AC3_AGG_LIMIT_MASK;
-	mac_val |= AC3_AGG_LIMIT(21);
+	mac_val |= AC3_AGG_LIMIT(24);
 	RTMP_IO_WRITE32(pAd, AGG_AALCR, mac_val);
 	
 	RTMP_IO_READ32(pAd, AGG_AALCR1, &mac_val);
 	mac_val &= ~AC10_AGG_LIMIT_MASK;
-	mac_val |= AC10_AGG_LIMIT(21);
+	mac_val |= AC10_AGG_LIMIT(24);
 	mac_val &= ~AC11_AGG_LIMIT_MASK;
-	mac_val |= AC11_AGG_LIMIT(21);
+	mac_val |= AC11_AGG_LIMIT(24);
 	mac_val &= ~AC12_AGG_LIMIT_MASK;
-	mac_val |= AC12_AGG_LIMIT(21);
+	mac_val |= AC12_AGG_LIMIT(24);
 	mac_val &= ~AC13_AGG_LIMIT_MASK;
-	mac_val |= AC13_AGG_LIMIT(21);
+	mac_val |= AC13_AGG_LIMIT(24);
 	RTMP_IO_WRITE32(pAd, AGG_AALCR1, mac_val);
 	
 	/* Vector report queue setting */
@@ -373,8 +373,6 @@ int mt7603_read_chl_pwr(RTMP_ADAPTER *pAd)
 	/* check PA type combination */
 	RT28xx_EEPROM_READ16(pAd, EEPROM_NIC1_OFFSET, Value);
 	cap->pa_type = GET_PA_TYPE(Value);
-
-	DBGPRINT(RT_DEBUG_OFF, ("PA type = %d\n", cap->pa_type));
 
 	return TRUE;
 }
@@ -711,7 +709,7 @@ void mt7603_get_tx_pwr_info(RTMP_ADAPTER *pAd)
 
     cap->tx_1_target_pwr_g_band = (is_empty) ? TX_TARGET_PWR_DEFAULT_VALUE : (value & TX1_G_BAND_TARGET_PWR_MASK);
 
-    DBGPRINT(RT_DEBUG_TRACE, ("tssi_1_target_pwr_g_band = %d\n", cap->tx_1_target_pwr_g_band));
+    printk ("tssi_1_target_pwr_g_band = %d\n", cap->tx_1_target_pwr_g_band);
 
     /* Read power offset (channel delta) */
     if (is_empty) {
@@ -1105,8 +1103,9 @@ VOID mt7603_init(RTMP_ADAPTER *pAd)
 		pChipCap->fw_header_image = MT7603_FirmwareImage;
 		pChipCap->fw_bin_file_name = "mtk/MT7603.bin";
 		pChipCap->fw_len = sizeof(MT7603_FirmwareImage);
+
 	}
-	else
+	else 
 #endif /* MT7603_E1 */
 #ifdef MT7603_E2
 	if(MTK_REV_GTE(pAd, MT7603, MT7603E2))
@@ -1265,8 +1264,8 @@ void usb_iot_add_padding(struct urb *urb, UINT8 *buf, ra_dma_addr_t dma)
 	int sendlen = 0;
 
 	if (!urb || !buf){
-		DBGPRINT(RT_DEBUG_ERROR, ("usb_iot_add_padding %x %x\n", urb, buf));
-		DBGPRINT(RT_DEBUG_ERROR, ("\ntransfer_buffer_length=%d\n", urb->transfer_buffer_length));
+		printk("usb_iot_add_padding %x %x\n", urb, buf);
+		printk("\ntransfer_buffer_length=%d\n", urb->transfer_buffer_length);
 		return;
 	}
 
@@ -1302,18 +1301,30 @@ void mt7603_set_ed_cca(RTMP_ADAPTER *pAd, BOOLEAN enable)
 	
 	UINT32 macVal = 0, macVal2 = 0; 
 	UINT32 NBIDmacVal = 0;
+	BOOLEAN bIsCERegion = FALSE;
+	UINT32 ed_th = 0;
+	bIsCERegion = GetEDCCASupport(pAd);
+	ed_th = pAd->ed_th;
 
 	RTMP_IO_READ32(pAd, WF_PHY_BASE + 0x0634, &macVal2);
 	
 	if (enable)
 	{
 		macVal = 0xD7C87D0F;  //EDCCA ON , TH - L, USER case  //D7C87D0F
+		ed_th = pAd->ed_th;
+		pAd->ed_on = TRUE;
+		if((!bIsCERegion) && (ed_th < NON_CE_REGION_MAX_ED_TH)) {
+			macVal = macVal & (~(0x7F << 8));  /*NON-CE Region, ED_TH set to -40dBm~-50dBm;bit14~bit8 is for ED_TH, 0x00 means -62dBm*/
+			macVal = macVal | (ed_th << 8);
+			pAd->ed_on = FALSE;
+			DBGPRINT(RT_DEBUG_OFF, ("%s: NON-CE Region,60200618=%x,ed_th=%x\n", __FUNCTION__, macVal,ed_th));
+		}
 		RTMP_IO_WRITE32(pAd, WF_PHY_BASE + 0x0618, macVal);
 
 		macVal2 |= 0x1;
 		RTMP_IO_WRITE32(pAd, WF_PHY_BASE + 0x0634, macVal2);
 		
-#ifdef SMART_CARRIER_SENSE_SUPPORT
+#ifdef SMART_CARRIER_SENSE_SUPPORT	
 		pAd->SCSCtrl.EDCCA_Status = 1;
 		DBGPRINT(RT_DEBUG_ERROR, ("%s: TURN ON EDCCA mac 0x10618 = 0x%x, EDCCA_Status=%d\n", __FUNCTION__, macVal, pAd->SCSCtrl.EDCCA_Status));
 #else
@@ -1321,14 +1332,26 @@ void mt7603_set_ed_cca(RTMP_ADAPTER *pAd, BOOLEAN enable)
 #endif /* SMART_CARRIER_SENSE_SUPPORT */
 
 	}
-	else
+	else	
 	{
-		macVal = 0xD7083F0F;  //EDCCA OFF //d7083f0f		
+
+
+		/* After 7603 ACI issue task, the edcca could be always opened;
+		set ED threshold to -65dBm;
+		Disable PSE reset;
+		*/
+		macVal = 0xD7e87d10;
+		pAd->ed_on = TRUE;
 		RTMP_IO_WRITE32(pAd, WF_PHY_BASE + 0x0618, macVal);
-		
+
 		macVal2 &= 0xFFFFFFFE;
 		RTMP_IO_WRITE32(pAd, WF_PHY_BASE + 0x0634, macVal2);
-		
+
+		/*Adjust PD Threshold to -40dBm*/
+		RTMP_IO_READ32(pAd, WF_PHY_BASE + 0x0620 , &macVal);
+		macVal &= ~0x3f;
+		macVal |= 0x3c;
+		RTMP_IO_WRITE32(pAd, WF_PHY_BASE + 0x0620, macVal);
 #ifdef SMART_CARRIER_SENSE_SUPPORT
 		pAd->SCSCtrl.EDCCA_Status = 0;
 		DBGPRINT(RT_DEBUG_ERROR, ("%s: TURN OFF EDCCA  mac 0x10618 = 0x%x, EDCCA_Status=%d\n", __FUNCTION__, macVal, pAd->SCSCtrl.EDCCA_Status));
@@ -1356,5 +1379,11 @@ void mt7603_set_ed_cca(RTMP_ADAPTER *pAd, BOOLEAN enable)
 		NBIDmacVal |= (1<<31); 
 		RTMP_IO_WRITE32(pAd, WF_PHY_BASE + 0x0610, NBIDmacVal);		
 	}
+	/*Init Lower_signal_level to -65dBm*/
+	RTMP_IO_READ32(pAd, WF_PHY_BASE + 0x0620, &macVal2);
+	macVal2 &= 0xFFFFFFC0;
+	macVal2 |= 0x00000023;	
+	RTMP_IO_WRITE32(pAd, WF_PHY_BASE + 0x0620, macVal2);	
 			
 }
+

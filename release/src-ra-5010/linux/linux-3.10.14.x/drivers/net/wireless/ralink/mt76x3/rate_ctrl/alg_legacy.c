@@ -118,8 +118,18 @@ VOID APMlmeDynamicTxRateSwitching(RTMP_ADAPTER *pAd)
 
 			if ( pAd->MacTab.Size == 1 )
 			{
-				if ( ((pTable == RateSwitchTableAdapt11N2S) && pEntry->HTPhyMode.field.MCS >= 14 ) ||
-					((pTable == RateSwitchTableAdapt11N1S) && pEntry->HTPhyMode.field.MCS >= 6 ) )
+
+ 				if ( ((pTable == RateSwitchTableAdapt11N2S) && pEntry->HTPhyMode.field.MCS >= 14 ) ||
+					((pTable == RateSwitchTableAdapt11N1S) && pEntry->HTPhyMode.field.MCS >= 6 )
+#ifdef MULTI_CLIENT_SUPPORT
+					|| ((pTable == RateSwitchTableAdapt11N2SForMultiClients) && pEntry->HTPhyMode.field.MCS >= 14 )
+					|| ((pTable == RateSwitchTableAdapt11N1SForMultiClients) && pEntry->HTPhyMode.field.MCS >= 6 )
+#endif /* MULTI_CLIENT_SUPPORT */
+#ifdef INTERFERENCE_RA_SUPPORT
+					|| ((pTable == RateSwitchTableAdapt11N2SForInterference) && pEntry->HTPhyMode.field.MCS >= 14 )
+					|| ((pTable == RateSwitchTableAdapt11N1SForInterference) && pEntry->HTPhyMode.field.MCS >= 6 )
+#endif /* INTERFERENCE_RA_SUPPORT */
+				)
 					pAd->bDisableRtsProtect = TRUE;
 				else
 					pAd->bDisableRtsProtect = FALSE;
@@ -318,6 +328,24 @@ VOID APMlmeDynamicTxRateSwitching(RTMP_ADAPTER *pAd)
 		{
 			UpRateIdx = CurrRateIdx;
 
+				TmpIdx = CurrRateIdx - 1;
+				while(TmpIdx >= 0)
+				{
+					pTmpTxRate = PTX_RA_LEGACY_ENTRY(pTable, TmpIdx);
+					if (pEntry->SupportHTMCS[pTmpTxRate->CurrMCS] == TRUE)
+					{
+						DownRateIdx = TmpIdx;
+						break;
+					}
+					TmpIdx--;
+				}
+			}
+			else if ((CurrRateIdx > 0) && (CurrRateIdx > (TableSize - 1)))
+			{
+				CurrRateIdx = (TableSize - 1);
+		
+				UpRateIdx = CurrRateIdx;
+                
 				TmpIdx = CurrRateIdx - 1;
 				while(TmpIdx >= 0)
 				{
@@ -620,7 +648,7 @@ VOID APQuickResponeForRateUpExec(
 				TrainUp, TrainDown,
 				pEntry->lastRateIdx,
 				TxErrorRatio,
-				(100-TxErrorRatio)*TxTotalCnt*RA_INTERVAL/(100*pAd->ra_fast_interval)));	/* Normalized packets per RA Interval */
+				(100-TxErrorRatio)*TxTotalCnt*pAd->ra_interval/(100*pAd->ra_fast_interval)));	/* Normalized packets per RA Interval */
 			
 #ifdef DBG_CTRL_SUPPORT
 		/* Debug option: Concise RA log */
@@ -628,9 +656,7 @@ VOID APQuickResponeForRateUpExec(
 			MlmeRALog(pAd, pEntry, RAL_QUICK_DRS, TxErrorRatio, TxTotalCnt);
 #endif /* DBG_CTRL_SUPPORT */
 
-		if ((TxCnt <= 15) && 
-			(pEntry->HTPhyMode.field.MODE == MODE_HTMIX) &&
-			(pEntry->HTPhyMode.field.MCS > 1))
+        if (TxCnt <= 15 && pEntry->HTPhyMode.field.MCS > 1)
         {
 			MlmeClearAllTxQuality(pEntry);
 

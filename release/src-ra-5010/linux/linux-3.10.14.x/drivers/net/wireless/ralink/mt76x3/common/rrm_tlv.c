@@ -161,6 +161,10 @@ VOID RRM_InsertRRMEnCapIE(
 		0;
 	RrmEnCap.field.AntennaInfoCap = 0;
 
+#ifdef RT_BIG_ENDIAN
+	(*((UINT64 *)&RrmEnCap)) = cpu2le64(*((UINT64 *)&RrmEnCap));
+#endif
+
 	MakeOutgoingFrame(pFrameBuf,					&TempLen,
 						1,							&ElementID,
 						1,							&Len,
@@ -204,6 +208,27 @@ VOID RRM_InsertNeighborRepIE(
 
 	return;
 }
+
+
+VOID RRM_InsertNeighborRepIE_New(
+	IN PRTMP_ADAPTER pAd,
+	OUT PUCHAR pFrameBuf,
+	OUT PULONG pFrameLen,
+	IN UINT8 Len,
+	IN RRM_PNEIGHBOR_REP_INFO pNeighborRepInfo)
+{
+	ULONG TempLen;
+	UINT8 IEId = IE_RRM_NEIGHBOR_REP;
+
+	MakeOutgoingFrame(pFrameBuf,						&TempLen,
+						1,								&IEId,
+						1,								&Len,
+						sizeof(RRM_NEIGHBOR_REP_INFO),	pNeighborRepInfo,
+						END_OF_ARGS);
+
+	*pFrameLen = *pFrameLen + TempLen;
+}
+
 
 VOID RRM_InsertNeighborTSFOffsetSubIE(
 	IN PRTMP_ADAPTER pAd,
@@ -301,8 +326,6 @@ VOID RRM_InsertBssAvailableACIE(
 
 	pAcBitMap->word = 0;
 
-	pAcBitMap->word = cpu2le16(pAcBitMap->word);
-
 	/* cacule the total length of the IE. */
 	Len = 2;
 	for (idx=0; idx<12; idx++)
@@ -311,7 +334,12 @@ VOID RRM_InsertBssAvailableACIE(
 			Len += 2;
 	}
 
-	MakeOutgoingFrame(	pFrameBuf,							&TempLen,
+#ifdef RT_BIG_ENDIAN
+	pAcBitMap->word = cpu2le16(pAcBitMap->word);
+#endif
+
+
+	MakeOutgoingFrame(pFrameBuf,							&TempLen,
 						1,									&IEId,
 						1,									&Len,
 						sizeof(RRM_BSS_AVAILABLE_AC_INFO),	&AvailableAcInfo,
@@ -327,28 +355,52 @@ VOID RRM_InsertBssAvailableACIE(
 VOID RRM_InsertRequestIE(
 	IN PRTMP_ADAPTER pAd,
 	OUT PUCHAR pFrameBuf,
-	OUT PULONG pFrameLen)
+	OUT PULONG pFrameLen,
+	IN UINT8 ie_num,
+	IN PUINT8 ie_list)
 {
-	UINT8 RequestIEs[] = {	0,		/* SSID */
-							48,		/* RSN IE */
-							70,		/* RRM Capabilities. */
-							54,		/* Mobility Domain. */
-							221};	/* Vendor Specific. */
-
 	ULONG TempLen;
 	UINT8 IEId = IE_802_11D_REQUEST;
 	UINT8 Len;
 
-	Len = 5;
-	MakeOutgoingFrame(	pFrameBuf,		&TempLen,
+	/*Len = 5;
+	MakeOutgoingFrame(pFrameBuf,		&TempLen,
 						1,				&IEId,
 						1,				&Len,
 						Len,			RequestIEs,
 						END_OF_ARGS);
+						*/
+	Len = ie_num;
+	MakeOutgoingFrame(pFrameBuf,		&TempLen,
+						1,				&IEId,
+						1,				&Len,
+						Len,			ie_list,
+						END_OF_ARGS);
 
 	*pFrameLen = *pFrameLen + TempLen;
+	return;
+}
 
-	return;	
+VOID RRM_InsertRequestIE_NEW(
+	IN PRTMP_ADAPTER pAd,
+	OUT PUCHAR pFrameBuf,
+	OUT PULONG pFrameLen,
+	IN PUCHAR pRequest,
+	IN UINT8 RequestLen)
+{
+	ULONG TempLen = 0;
+	UINT8 IEId = IE_802_11D_REQUEST;
+	UINT8 Len = 0;
+
+	Len = RequestLen;
+
+	MakeOutgoingFrame(pFrameBuf,		&TempLen,
+						1,				&IEId,
+						1,				&Len,
+						Len,			pRequest,
+						END_OF_ARGS);
+
+	*pFrameLen = *pFrameLen + TempLen;
 }
 
 VOID RRM_InsertTxStreamReqIE(
@@ -371,7 +423,7 @@ VOID RRM_InsertTxStreamReqTriggerReportSubIE(
 	ULONG Len = sizeof(RRM_TRANSMIT_MEASURE_TRIGGER_REPORT);
 	UINT8 SubId = RRM_TX_STREAM_SUBID_TRIGGER_REPORT;
 
-	MakeOutgoingFrame(	pFrameBuf,		&TempLen,
+	MakeOutgoingFrame(pFrameBuf,		&TempLen,
 						1,				&SubId,
 						1,				&Len,
 						Len,			pBuf,
@@ -399,39 +451,44 @@ VOID RRM_EnqueueBcnReq(
 	ULONG FrameLen;
 
 	NStatus = MlmeAllocateMemory(pAd, (PVOID)&pOutBuffer);  /*Get an unused nonpaged memory */
-	if(NStatus != NDIS_STATUS_SUCCESS)
-	{
+	if (NStatus != NDIS_STATUS_SUCCESS) {
 		DBGPRINT(RT_DEBUG_TRACE, ("%s() allocate memory failed \n", __FUNCTION__));
 		return;
 	}
 
 	/* build action frame header. */
-	MgtMacHeaderInit(pAd, &ActHdr, SUBTYPE_ACTION, 0, pAd->MacTab.Content[Aid].Addr,
-						pAd->ApCfg.MBSSID[IfIdx].wdev.if_addr,
-						pAd->ApCfg.MBSSID[IfIdx].wdev.bssid);
+	if (Aid) {
+		MgtMacHeaderInit(pAd, &ActHdr, SUBTYPE_ACTION, 0, pAd->MacTab.Content[Aid].Addr,
+							pAd->ApCfg.MBSSID[IfIdx].wdev.if_addr,
+							pAd->ApCfg.MBSSID[IfIdx].wdev.bssid);
+	} else {
+		MgtMacHeaderInit(pAd, &ActHdr, SUBTYPE_ACTION, 0, pMlmeBcnReq->Addr,
+							pAd->ApCfg.MBSSID[IfIdx].wdev.if_addr,
+							pAd->ApCfg.MBSSID[IfIdx].wdev.bssid);
+	}
 
 	NdisMoveMemory(pOutBuffer, (PCHAR)&ActHdr, sizeof(HEADER_802_11));
 	FrameLen = sizeof(HEADER_802_11);
 
 	/*
-		Action header has a field to indicate total length of packet
-		but the total length is unknow untial whole packet completd.
-		So skip the action here and fill it late.
-		1. skip Catgore (1 octect), Action(1 octect).
-		2. skip dailog token (1 octect).
-		3. skip Num Of Repetitions field (2 octects)
-		3. skip MeasureReqIE (2 + sizeof(MEASURE_REQ_INFO)).
+	*	Action header has a field to indicate total length of packet
+	*	but the total length is unknown untial whole packet completd.
+	*	So skip the action here and fill it late.
+	*	1. skip Catgore (1 octect), Action(1 octect).
+	*	2. skip dailog token (1 octect).
+	*	3. skip Num Of Repetitions field (2 octects)
+	*	3. skip MeasureReqIE (2 + sizeof(MEASURE_REQ_INFO)).
 	*/
 	FrameLen += (7 + sizeof(MEASURE_REQ_INFO));
 
 	TotalLen = sizeof(MEASURE_REQ_INFO);
 	/*
-		Insert Beacon Req IE.
+	*	Insert Beacon Req IE.
 	*/
 	BcnReq.RegulatoryClass = pMlmeBcnReq->RegulatoryClass;
 	BcnReq.ChNumber = pMlmeBcnReq->MeasureCh;
-	BcnReq.RandomInterval = cpu2le16((UINT16)RandomByte(pAd) << 8
-								| (UINT16)RandomByte(pAd));
+	/*BcnReq.RandomInterval = 0;*/
+	BcnReq.RandomInterval = cpu2le16(pMlmeBcnReq->RandInt);
 	BcnReq.MeasureDuration = cpu2le16(pMlmeBcnReq->MeasureDuration);
 	BcnReq.MeasureMode = pMlmeBcnReq->MeasureMode;
 	COPY_MAC_ADDR(BcnReq.Bssid, pMlmeBcnReq->Bssid);
@@ -467,7 +524,8 @@ VOID RRM_EnqueueBcnReq(
 			ULONG FramelenTmp = FrameLen;
 			InsertChannelRepIE(pAd, (pOutBuffer+FrameLen), &FrameLen,
 								(RTMP_STRING *)pAd->CommonCfg.CountryCode,
-								pMlmeBcnReq->ChRepRegulatoryClass[idx]);
+								pMlmeBcnReq->ChRepRegulatoryClass[idx],
+								&pMlmeBcnReq->ChRepList[0]);
 			TotalLen += (FrameLen - FramelenTmp);
 			idx ++;
 		}
@@ -475,7 +533,8 @@ VOID RRM_EnqueueBcnReq(
 
 
 	/* inssert report detail sub field. */
-	if (BcnReq.MeasureMode == 2)
+	ReportDetail = pMlmeBcnReq->report_detail;
+	/*if (BcnReq.MeasureMode == 2)
 		ReportDetail = 0;
 	else
 		ReportDetail = 1;
@@ -487,7 +546,8 @@ VOID RRM_EnqueueBcnReq(
 		TotalLen += (FrameLen - FramelenTmp);
 
 		FramelenTmp = FrameLen;
-		RRM_InsertRequestIE(pAd, (pOutBuffer+FrameLen), &FrameLen);
+		RRM_InsertRequestIE(pAd, (pOutBuffer+FrameLen), &FrameLen,
+			pMlmeBcnReq->request_ie_num, pMlmeBcnReq->request_ie);
 		TotalLen += (FrameLen - FramelenTmp);
 	}
 	else
@@ -496,15 +556,40 @@ VOID RRM_EnqueueBcnReq(
 		RRM_InsertBcnReqRepDetailSubIE(pAd, (pOutBuffer+FrameLen), &FrameLen, 0);		
 		TotalLen += (FrameLen - FramelenTmp);
 	}
+*/
+	if (BcnReq.MeasureMode == RRM_BCN_REQ_MODE_BCNTAB)
+		ReportDetail = 0; /*force report detail to 0 when it is table mode*/
+	{	/*insert report detail sub ie*/
+		ULONG FramelenTmp = FrameLen;
+
+		RRM_InsertBcnReqRepDetailSubIE(pAd, (pOutBuffer + FrameLen), &FrameLen, ReportDetail);
+		TotalLen += (FrameLen - FramelenTmp);
+	}
+	if (ReportDetail == 1) {
+		/*if report detail is 1, insert request ie list*/
+		ULONG FramelenTmp = FrameLen;
+
+		RRM_InsertRequestIE (pAd,
+							(pOutBuffer + FrameLen),
+							&FrameLen,
+							pMlmeBcnReq->request_ie_num,
+							pMlmeBcnReq->request_ie);
+		TotalLen += (FrameLen - FramelenTmp);
+	}
 
 
 	/* Insert Action header here. */
 	{
-		ULONG tmpLen = sizeof(HEADER_802_11);
+		ULONG tmpLen = sizeof(HEADER_802_11);;
 		MeasureReqMode.word = 0;
+		MeasureReqMode.field.DurationMandatory = 0;
+		MeasureReqMode.field.Report = 0;
+		MeasureReqMode.field.Request = 0;
+		MeasureReqMode.field.Enable = 0;
+		MeasureReqMode.field.Parallel = 0;
 		MakeMeasurementReqFrame(pAd, pOutBuffer, &tmpLen,
 			TotalLen, CATEGORY_RM, RRM_MEASURE_REQ, MeasureReqToken,
-			MeasureReqMode.word, MeasureReqType, 1);
+			MeasureReqMode.word, MeasureReqType, 0);
 	}
 
 	MeasureReqInsert(pAd, MeasureReqToken);
@@ -518,6 +603,37 @@ VOID RRM_EnqueueBcnReq(
 }
 
 
+/*
+*	reference 2012 spec.
+*	802.11-2012.pdf
+*	page#581 (0 is not euqal to no security )
+*	The Security bit, if 1, indicates that the AP identified by this BSSID supports the same security provisioning
+*	as used by the STA in its current association. If the bit is 0, it indicates either that the AP does not support
+*	the same security provisioning or that the security information is not available at this time.
+*/
+BOOLEAN RRM_CheckBssAndStaSecurityMatch(
+	IN PRTMP_ADAPTER pAd,
+	IN PMAC_TABLE_ENTRY pEntry,
+	IN BSS_ENTRY * pBssEntry)
+{
+	BOOLEAN ret = FALSE;
+
+	if ((pBssEntry->AuthMode == pEntry->AuthMode)
+	&& (pBssEntry->WepStatus == pEntry->WepStatus))
+		ret = TRUE;
+	else
+		ret = FALSE;
+
+	DBGPRINT(RT_DEBUG_TRACE, ("%s: pBssEntry %s/%s & pSTA %s/%s = (%d/%d)  ret %d\n", __func__,
+		GetAuthMode(pBssEntry->AuthMode), GetEncryptType(pBssEntry->WepStatus),
+		GetAuthMode(pEntry->AuthMode), GetEncryptType(pEntry->WepStatus),
+		(pBssEntry->AuthMode == pEntry->AuthMode),
+		(pBssEntry->WepStatus == pEntry->WepStatus),
+		ret
+		));
+
+	return ret;
+}
 
 VOID RRM_EnqueueNeighborRep(
 	IN PRTMP_ADAPTER pAd,
@@ -585,7 +701,7 @@ VOID RRM_EnqueueNeighborRep(
 			RRM_BSSID_INFO BssidInfo;
 			BssidInfo.word = 0;
 			BssidInfo.field.APReachAble = 3;
-			BssidInfo.field.Security = 0; /* rrm to do. */
+			BssidInfo.field.Security = RRM_CheckBssAndStaSecurityMatch(pAd, pEntry, pBssEntry);
 			BssidInfo.field.KeyScope = 0; /* "report AP has same authenticator as the AP. */
 			BssidInfo.field.SepctrumMng = (pBssEntry->CapabilityInfo & (1 << 8))?1:0;
 			BssidInfo.field.Qos = (pBssEntry->CapabilityInfo & (1 << 9))?1:0;
@@ -593,85 +709,6 @@ VOID RRM_EnqueueNeighborRep(
 			BssidInfo.field.RRM = (pBssEntry->CapabilityInfo & RRM_CAP_BIT)?1:0;
 			BssidInfo.field.DelayBlockAck = (pBssEntry->CapabilityInfo & (1 << 14))?1:0;
 			BssidInfo.field.ImmediateBA = (pBssEntry->CapabilityInfo & (1 << 15))?1:0;
-
-	
-/* 
-	reference 2012 spec.
-	802.11-2012.pdf
-	page#581 (0 is not euqal to no security )
-	The Security bit, if 1, indicates that the AP identified by this BSSID supports the same security provisioning
-	as used by the STA in its current association. If the bit is 0, it indicates either that the AP does not support
-	the same security provisioning or that the security information is not available at this time.
-*/
-
-			
-			BssidInfo.field.KeyScope = 0; /* "report AP has same authenticator as the AP. */
-/*
-	reference 2012 spec.
-	802.11-2012.pdf
-	page#582 (0 means information is not available  )
-	The Key Scope bit, when set, indicates the AP indicated by this BSSID has the same authenticator as the AP
-	sending the report. If this bit is 0, it indicates a distinct authenticator or the information is not available.
-*/
-
-			BssidInfo.field.SepctrumMng = (pBssEntry->CapabilityInfo & (1 << 8))?1:0;
-			BssidInfo.field.Qos = (pBssEntry->CapabilityInfo & (1 << 9))?1:0;
-			BssidInfo.field.APSD = (pBssEntry->CapabilityInfo & (1 << 11))?1:0;
-			BssidInfo.field.RRM = (pBssEntry->CapabilityInfo & RRM_CAP_BIT)?1:0;
-			BssidInfo.field.DelayBlockAck = (pBssEntry->CapabilityInfo & (1 << 14))?1:0;
-			BssidInfo.field.ImmediateBA = (pBssEntry->CapabilityInfo & (1 << 15))?1:0;
-
-
-			BssidInfo.field.MobilityDomain = (pBssEntry->bHasMDIE )?1:0;
-			BssidInfo.field.HT = (pBssEntry->HtCapabilityLen != 0)?1:0;
-#ifdef DOT11_VHT_AC			
-			BssidInfo.field.VHT = (pBssEntry->vht_cap_len != 0)?1:0;
-#endif /* DOT11_VHT_AC */
-
-			/*
-			reference spec:
-			dot11FrameRprtPhyType OBJECT-TYPE
-			SYNTAX INTEGER {
-			fhss(1),
-			dsss(2),
-			irbaseband(3),
-			ofdm(4),
-			hrdsss(5),
-			erp(6),
-			ht(7),
-			vht(9)
-			}
-
-			*/
-			
-			if (pBssEntry->Channel > 14) // 5G case
-			{
-				if (pBssEntry->HtCapabilityLen != 0) // HT or Higher case
-				{
-#ifdef DOT11_VHT_AC				
-					if (pBssEntry->vht_cap_len != 0)
-						pBssEntry->CondensedPhyType = 9;
-					else
-#endif /* DOT11_VHT_AC */
-						pBssEntry->CondensedPhyType = 7;
-				}
-				else // OFDM case
-				{
-					pBssEntry->CondensedPhyType = 4;
-				}
-			}
-			else // 2.4G case
-			{
-
-				if (pBssEntry->HtCapabilityLen != 0) //HT case
-					pBssEntry->CondensedPhyType = 7;
-				else if (ERP_IS_NON_ERP_PRESENT(pBssEntry->Erp)) //ERP case
-					pBssEntry->CondensedPhyType = 6;
-				else if (pBssEntry->SupRateLen > 4)// OFDM case (1,2,5.5,11 for CCK 4 Rates)
-					pBssEntry->CondensedPhyType = 4;
-
-				/* no CCK's definition in spec. */
-			}
 
 			RRM_InsertNeighborRepIE(pAd, (pOutBuffer + FrameLen), &FrameLen,
 				sizeof(RRM_NEIGHBOR_REP_INFO), pBssEntry->Bssid,
@@ -881,7 +918,7 @@ VOID RRM_EnqueueTxStreamMeasureReq(
 
 	/* Insert Action header here. */
 	{
-		ULONG tmpLen = sizeof(HEADER_802_11);
+		ULONG tmpLen = sizeof(HEADER_802_11);;
 		MeasureReqMode.field.Enable = 1;
 		MeasureReqMode.field.DurationMandatory =
 			pMlmeTxMeasureReq->bDurationMandatory;

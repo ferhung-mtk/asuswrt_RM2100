@@ -53,6 +53,9 @@ INT wdev_tx_pkts(NDIS_HANDLE dev_hnd, PPNDIS_PACKET pkt_list, UINT pkt_cnt, stru
 	BOOLEAN allowToSend;
 	UCHAR wcid = MAX_LEN_OF_MAC_TABLE;
 	UINT Index;
+#ifdef A4_CONN
+	UCHAR *pSrcBufVA = NULL;
+#endif
 #ifdef CONFIG_FPGA_MODE
 	BOOLEAN force_tx;
 #endif /* CONFIG_FPGA_MODE */
@@ -69,6 +72,10 @@ INT wdev_tx_pkts(NDIS_HANDLE dev_hnd, PPNDIS_PACKET pkt_list, UINT pkt_cnt, stru
 		{
 			/* Drop send request since hardware is in reset state */
 			RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_FAILURE);
+#ifdef NEW_IXIA_METHOD
+			if (IS_EXPECTED_LENGTH(RTPKT_TO_OSPKT(pPacket)->len))
+				pAd->tr_ststic.tx[DROP_HW_RESET]++;
+#endif
 			continue;
 		}
 
@@ -86,7 +93,7 @@ INT wdev_tx_pkts(NDIS_HANDLE dev_hnd, PPNDIS_PACKET pkt_list, UINT pkt_cnt, stru
 
 
 
-		if (((wdev->allow_data_tx == TRUE) 
+		if (((wdev->allow_data_tx == TRUE) || (pAd->BSendBMToAir)
 #ifdef CONFIG_FPGA_MODE
 			|| (force_tx == TRUE)
 #endif /* CONFIG_FPGA_MODE */
@@ -121,39 +128,72 @@ INT wdev_tx_pkts(NDIS_HANDLE dev_hnd, PPNDIS_PACKET pkt_list, UINT pkt_cnt, stru
 				@20150325
 			*/
 #if defined(BB_SOC) && defined(BB_RA_HWNAT_WIFI)
-			if (ra_sw_nat_hook_tx != NULL) 
+	        if (ra_sw_nat_hook_tx != NULL) 
 			{
-#ifdef TCSUPPORT_MT7510_FE
-				if (ra_sw_nat_hook_tx(pPacket, NULL, FOE_MAGIC_WLAN) == 0)
-#else
-				if (ra_sw_nat_hook_tx(pPacket, 1) == 0)
-#endif
+	#ifdef TCSUPPORT_MT7510_FE
+	            if (ra_sw_nat_hook_tx(pPacket, NULL, FOE_MAGIC_WLAN) == 0) 			
+	#else
+	            if (ra_sw_nat_hook_tx(pPacket, 1) == 0) 			
+	#endif
 				{
-					RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_FAILURE);
-					return 0;
-				}
-			}
+	                RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_FAILURE);
+	                    return 0;
+	            }
+	        }
 #endif
 
-#if defined (CONFIG_RA_HW_NAT) || defined (CONFIG_RA_HW_NAT_MODULE)
-#if !defined (CONFIG_RA_NAT_NONE)
-			if (ra_sw_nat_hook_tx != NULL)
+#ifdef CONFIG_RAETH
+#if !defined(CONFIG_RA_NAT_NONE)
+			if(ra_sw_nat_hook_tx!= NULL)
 			{
-				ra_sw_nat_hook_tx(pPacket, 0);
+				unsigned long flags;
+		
+				RTMP_INT_LOCK(&pAd->page_lock, flags);
+				ra_sw_nat_hook_tx(pPacket);
+				RTMP_INT_UNLOCK(&pAd->page_lock, flags);
 			}
 #endif
-#endif
+#endif /* CONFIG_RAETH */
 
 			if (wdev->tx_pkt_handle)
-				wdev->tx_pkt_handle(pAd, pPacket);
-			else
 			{
+#ifndef A4_CONN
+				wdev->tx_pkt_handle(pAd, pPacket);
+#else
+#ifdef CONFIG_AP_SUPPORT
+				IF_DEV_CONFIG_OPMODE_ON_AP(pAd)
+				{
+					if (wdev->wdev_type != WDEV_TYPE_STA) {
+						pSrcBufVA = GET_OS_PKT_DATAPTR(pPacket);
+						if (pSrcBufVA &&
+								IS_BROADCAST_MAC_ADDR(pSrcBufVA)) {
+							a4_send_clone_pkt(pAd, wdev->func_idx, pPacket, NULL);
+						} else if (pSrcBufVA && IS_MULTICAST_MAC_ADDR(pSrcBufVA)
+#ifdef IGMP_SNOOP_SUPPORT
+								&& (!pAd->ApCfg.IgmpSnoopEnable)
+#endif
+							) {
+							a4_send_clone_pkt(pAd, wdev->func_idx, pPacket, NULL);
+						} else {
+							DBGPRINT(RT_DEBUG_TRACE,
+								("The pkt is uc or IGMP is on, no need A4 CLONE\n"));
+						}
+					}
+				}
+#endif	
+				wdev->tx_pkt_handle(pAd, pPacket);
+#endif /* A4_CONN */
+			} else { 
 				DBGPRINT(RT_DEBUG_ERROR, ("%s():tx_pkt_handle not assigned!\n", __FUNCTION__));
 				RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_FAILURE);
 			}
-		}
-		else
+		} else {
 			RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_FAILURE);
+#ifdef NEW_IXIA_METHOD
+			if (IS_EXPECTED_LENGTH(RTPKT_TO_OSPKT(pPacket)->len))
+				pAd->tr_ststic.tx[INVALID_PKT_LEN]++;
+#endif
+		}
 	}
 
 	RTMPDeQueuePacket(pAd, FALSE, NUM_OF_TX_RING, WCID_ALL, MAX_TX_PROCESS);

@@ -234,7 +234,12 @@ VOID RTMPSetHT(
 		}
 	}
 #endif /* CONFIG_AP_SUPPORT */
-
+	//
+	// Added to provide sync between Bandwidth and Extended channel settings
+	//
+	if(pHTPhyMode->BW && pHTPhyMode->ExtOffset == EXTCHA_NONE)
+			pHTPhyMode->BW = 0;
+		
 	DBGPRINT(RT_DEBUG_TRACE, ("RTMPSetHT : HT_mode(%d), ExtOffset(%d), MCS(%d), BW(%d), STBC(%d), SHORTGI(%d)\n",
 										pHTPhyMode->HtMode, pHTPhyMode->ExtOffset, 
 										pHTPhyMode->MCS, pHTPhyMode->BW,
@@ -305,13 +310,11 @@ VOID RTMPSetHT(
 			break;
 	}
 
-#ifdef DOT11N_DRAFT3
 	if (pAd->CommonCfg.bForty_Mhz_Intolerant && (pHTPhyMode->BW == BW_40))
 	{
 		pHTPhyMode->BW = BW_20;
 		ht_cap->HtCapInfo.Forty_Mhz_Intolerant = 1;
 	}
-#endif /* DOT11N_DRAFT3 */
 
 	// TODO: shiang-6590, how about the "bw" when channel 14 for JP region???
 	//CFG_TODO
@@ -724,8 +727,6 @@ INT	SetCommonHT(RTMP_ADAPTER *pAd)
 		RTMPDisableDesiredHtInfo(pAd);
 		return FALSE;
 	}
-	
-	N_ChannelCheck(pAd); 
 
 #ifdef DOT11_VHT_AC
 	SetCommonVHT(pAd);
