@@ -516,9 +516,11 @@ wl_status(int eid, webs_t wp, int argc, char_t **argv, int unit)
 	wrq2.u.data.pointer = (caddr_t) buffer;
 	wrq2.u.data.flags = RT_OID_GET_PHY_MODE;
 
-	if (wl_ioctl(ifname, RT_PRIV_IOCTL, &wrq2) < 0)
-		return ret;
-
+	if (unit == 0) {
+		if (wl_ioctl(ifname, RT_PRIV_IOCTL, &wrq2) < 0)
+			return ret;
+	}
+	
 	if(wrq2.u.mode == (__u32) buffer) //.u.mode is at the same location as u.data.pointer
 	{ //new wifi driver
 		phy_mode = 0;
