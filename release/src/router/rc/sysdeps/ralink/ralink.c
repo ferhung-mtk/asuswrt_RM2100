@@ -2446,6 +2446,8 @@ int gen_ralink_config(int band, int is_iNIC)
 		fprintf(fp, "VHT_BW=%d\n", 1);
 	else if(wl_bw == 3 && (HTBW_MAX == 1) && (VHTBW_MAX == 1))	// 80 MHz
 		fprintf(fp, "VHT_BW=%d\n", 1);
+	else if(wl_bw == 5 && (HTBW_MAX == 1) && (VHTBW_MAX == 1))	// 160 MHz
+		fprintf(fp, "VHT_BW=%d\n", 2);
 #if defined(RTCONFIG_WIRELESSREPEATER) && defined(RTCONFIG_CONCURRENTREPEATER)	
 	else if ((wlc_express - 1) == band)   //express way (apclii0)
 		fprintf(fp, "VHT_BW=%d\n", 1);

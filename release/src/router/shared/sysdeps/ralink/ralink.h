@@ -42,7 +42,8 @@ extern const char APCLI_2G[];
 #define BW_40			1
 #define BW_BOTH			2
 #define BW_80			2
-#define BW_10			3
+#define BW_160			3
+#define BW_10			4
 
 #define INIC_VLAN_ID_START	4 //first vlan id used for RT3352 iNIC MII
 #define INIC_VLAN_IDX_START	2 //first available index to set vlan id and its group.
