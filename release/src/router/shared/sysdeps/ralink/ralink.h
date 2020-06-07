@@ -83,12 +83,14 @@ typedef union  _MACHTTRANSMIT_SETTING {
 // MIMO Tx parameter, ShortGI, MCS, STBC, etc.  these are fields in TXWI. Don't change this definition!!!
 typedef union  _MACHTTRANSMIT_SETTING_2G {
 	struct  {
-	unsigned short	MCS:7;	// MCS
-	unsigned short	BW:1;	//channel bandwidth 20MHz or 40 MHz
-	unsigned short	ShortGI:1;
-	unsigned short	STBC:2;	//SPACE
-	unsigned short	rsv:3;
-	unsigned short	MODE:2;	// Use definition MODE_xxx.
+	unsigned short MCS:6;
+	unsigned short ldpc:1;
+	unsigned short BW:2;
+	unsigned short ShortGI:1;
+	unsigned short STBC:1;
+	unsigned short eTxBF:1;
+	unsigned short iTxBF:1;
+	unsigned short MODE:3;
 	} field;
 	unsigned short	word;
  } MACHTTRANSMIT_SETTING_2G, *PMACHTTRANSMIT_SETTING_2G;
