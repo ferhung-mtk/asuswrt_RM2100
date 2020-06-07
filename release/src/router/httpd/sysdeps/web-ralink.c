@@ -635,39 +635,64 @@ wl_status(int eid, webs_t wp, int argc, char_t **argv, int unit)
 
 	ret+=websWrite(wp, "\nStations List			   \n");
 	ret+=websWrite(wp, "----------------------------------------\n");
-	ret+=websWrite(wp, "%-18s%-4s%-8s%-4s%-4s%-4s%-5s%-5s%-12s\n",
-			   "MAC", "PSM", "PhyMode", "BW", "MCS", "SGI", "STBC", "Rate", "Connect Time");
+	ret+=websWrite(wp, "%-18s%-4s%-8s%-4s%-4s%-4s%-5s%-6s%-5s%-5s%-12s\n",
+			   "MAC", "PSM", "PhyMode", "BW", "MCS", "SGI", "LDPC", "STBC", "RSSI", "Rate", "Connect Time");
 
-#define SHOW_STA_INFO(_p,_i,_st, _gr) {											\
-		int hr, min, sec;											\
-		_st *Entry = ((_st *)(_p)) + _i;									\
-		hr = Entry->ConnectedTime/3600;										\
-		min = (Entry->ConnectedTime % 3600)/60;									\
-		sec = Entry->ConnectedTime - hr*3600 - min*60;								\
-		ret+=websWrite(wp, "%02X:%02X:%02X:%02X:%02X:%02X %s %-7s %s %3d %s %s  %3dM %02d:%02d:%02d\n",		\
-				Entry->Addr[0], Entry->Addr[1],								\
-				Entry->Addr[2], Entry->Addr[3],								\
-				Entry->Addr[4], Entry->Addr[5],								\
-				Entry->Psm ? "Yes" : "NO ",								\
-				GetPhyMode(Entry->TxRate.field.MODE),							\
-				GetBW(Entry->TxRate.field.BW),								\
-				Entry->TxRate.field.MCS,								\
-				Entry->TxRate.field.ShortGI ? "Yes" : "NO ",						\
-				Entry->TxRate.field.STBC ? "Yes" : "NO ",						\
-				_gr(Entry->TxRate),									\
-				hr, min, sec										\
-		);													\
-	}
+#define SHOW_STA_INFO(_p,_i,_st, rssi, _gr) {											\
+		int hr, min, sec;												\
+		_st *Entry = ((_st *)(_p)) + _i;										\
+		hr = Entry->ConnectedTime/3600;											\
+		min = (Entry->ConnectedTime % 3600)/60;										\
+		sec = Entry->ConnectedTime - hr*3600 - min*60;									\
+		ret+=websWrite(wp, "%02X:%02X:%02X:%02X:%02X:%02X %3s %-7s %3s %3d %4s %4s %4s %4d %4dM %02d:%02d:%02d\n",	\
+				Entry->Addr[0], Entry->Addr[1],									\
+				Entry->Addr[2], Entry->Addr[3],									\
+				Entry->Addr[4], Entry->Addr[5],									\
+				Entry->Psm ? "Yes" : "NO ",									\
+				GetPhyMode(Entry->TxRate.field.MODE),								\
+				GetBW(Entry->TxRate.field.BW),									\
+				Entry->TxRate.field.MCS,									\
+				Entry->TxRate.field.ShortGI ? "Yes" : "NO ",							\
+				Entry->TxRate.field.ldpc ? "Yes" : "NO ",							\
+				Entry->TxRate.field.STBC ? "Yes" : "NO ",							\
+				rssi,												\
+				_gr(Entry->TxRate),										\
+				hr, min, sec											\
+		);														\
+	}															\
 
 	if (!strcmp(ifname, WIF_2G)) {
 		for (i=0;i<mp->Num;i++) {
-			SHOW_STA_INFO(mp2->Entry, i, RT_802_11_MAC_ENTRY_for_2G, getRate_2g);
+		int rssi;
+		rssi = -127;						
+		if (mp2->Entry[i].AvgRssi0) {										
+			rssi += mp2->Entry[i].AvgRssi0;									
+		}													
+		if (mp2->Entry[i].AvgRssi1) {										
+			rssi += mp2->Entry[i].AvgRssi1;									
+			
+		}													
+		if (mp2->Entry[i].AvgRssi2) {										
+			rssi += mp2->Entry[i].AvgRssi2;												
+		}													
+			SHOW_STA_INFO(mp2->Entry, i, RT_802_11_MAC_ENTRY_for_2G, rssi, getRate_2g);
 		}
 	}
 #if defined(RTCONFIG_HAS_5G)
 	else {
 		for (i=0;i<mp->Num;i++) {
-			SHOW_STA_INFO(mp->Entry, i, RT_802_11_MAC_ENTRY_for_5G, getRate);
+		int rssi;
+		rssi = -127;
+		if (mp->Entry[i].AvgRssi0) {										
+			rssi += mp->Entry[i].AvgRssi0;
+		}													
+		if (mp->Entry[i].AvgRssi1) {										
+			rssi += mp->Entry[i].AvgRssi1;
+		}													
+		if (mp->Entry[i].AvgRssi2) {										
+			rssi += mp->Entry[i].AvgRssi2;
+		}
+			SHOW_STA_INFO(mp->Entry, i, RT_802_11_MAC_ENTRY_for_5G, rssi, getRate);
 		}
 	}
 #endif	/* RTCONFIG_HAS_5G */
