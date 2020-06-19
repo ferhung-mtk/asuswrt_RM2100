@@ -464,7 +464,7 @@ enum WIFI_MODE {
 #define MAX_APCLI_NUM				0
 #ifdef APCLI_SUPPORT
 #undef MAX_APCLI_NUM
-#if defined(MT7615)
+#if defined(MT7615) && defined(DBDC_MODE)
 #define MAX_APCLI_NUM_DEFAULT		2
 #else
 #define MAX_APCLI_NUM_DEFAULT		1
@@ -701,6 +701,12 @@ enum {
 #define APPS_RETRIEVE_GOING			3
 #define APPS_RETRIEVE_WAIT_EVENT	4
 #define APPS_RETRIEVE_DONE			5
+#ifdef MTFWD
+enum nl_msg_id {
+	FWD_CMD_ADD_TX_SRC = 3,
+	FWD_CMD_DEL_TX_SRC = 4,
+};
+#endif
 
 /*#define PWR_UNKNOWN                   2 */
 
@@ -2082,7 +2088,7 @@ typedef struct _WIFI_NODE_TYPE {
 #define INF_MAIN_DEV_NAME		"rai0"
 #define INF_MBSSID_DEV_NAME		"rai"
 #else
-#if CONFIG_RTPCI_AP_RF_OFFSET == 0x48000 || CONFIG_RT_FIRST_CARD == 7603
+#if CONFIG_RTPCI_AP_RF_OFFSET == 0x48000
 #define INF_MAIN_DEV_NAME		"rai"
 #define INF_MBSSID_DEV_NAME		"rai"
 #else
@@ -2095,7 +2101,7 @@ typedef struct _WIFI_NODE_TYPE {
 #define INF_MSTA_DEV_NAME		"ra"
 
 
-#if CONFIG_RTPCI_AP_RF_OFFSET == 0x48000 || CONFIG_RT_FIRST_CARD == 7603
+#if CONFIG_RTPCI_AP_RF_OFFSET == 0x48000
 #define INF_WDS_DEV_NAME		"wdsi"
 #define INF_APCLI_DEV_NAME		"apclii"
 #define INF_MESH_DEV_NAME		"meshi"
