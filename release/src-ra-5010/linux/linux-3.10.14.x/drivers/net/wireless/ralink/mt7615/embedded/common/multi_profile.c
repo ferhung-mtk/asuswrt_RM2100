@@ -38,9 +38,9 @@
 #define SECOND_MBSSID_5G_DEVNAME "ra"
 #define SECOND_APCLI_5G_DEVNAME "apcli"
 #else
-#define SECOND_AP_5G_DEVNAME "ray0"
-#define SECOND_MBSSID_5G_DEVNAME "ray"
-#define SECOND_APCLI_5G_DEVNAME "apcliiy"
+#define SECOND_AP_5G_DEVNAME "rai0"
+#define SECOND_MBSSID_5G_DEVNAME "rai"
+#define SECOND_APCLI_5G_DEVNAME "apclii"
 #endif
 #define THIRD_AP_2G_PROFILE_PATH	"/etc/Wireless/WIFI3/RT2870AP_2G.dat"
 #define THIRD_AP_5G_PROFILE_PATH	"/etc/Wireless/WIFI3/RT2870AP_5G.dat"
