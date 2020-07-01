@@ -719,36 +719,43 @@ wl_status(int eid, webs_t wp, int argc, char_t **argv, int unit)
 	}															\
 
 	if (!strcmp(ifname, WIF_2G)) {
-		for (i=0;i<mp->Num;i++) {
-		int rssi;
-		rssi = -127;						
+		for (i=0;i<mp2->Num;i++) {
+		int rssi, cnt;
+		rssi = cnt = 0;						
 		if (mp2->Entry[i].AvgRssi0) {										
-			rssi += mp2->Entry[i].AvgRssi0;									
+			rssi += mp2->Entry[i].AvgRssi0;
+			cnt++;									
 		}													
 		if (mp2->Entry[i].AvgRssi1) {										
 			rssi += mp2->Entry[i].AvgRssi1;									
-			
+			cnt++;	
 		}													
 		if (mp2->Entry[i].AvgRssi2) {										
-			rssi += mp2->Entry[i].AvgRssi2;												
-		}													
+			rssi += mp2->Entry[i].AvgRssi2;	
+			cnt++;												
+		}
+			rssi = rssi / cnt;													
 			SHOW_STA_INFO(mp2->Entry, i, RT_802_11_MAC_ENTRY_for_2G, rssi, getRate_2g);
 		}
 	}
 #if defined(RTCONFIG_HAS_5G)
 	else {
 		for (i=0;i<mp->Num;i++) {
-		int rssi;
-		rssi = -127;
+		int rssi, cnt;
+		rssi = cnt = 0;
 		if (mp->Entry[i].AvgRssi0) {										
 			rssi += mp->Entry[i].AvgRssi0;
+			cnt++;	
 		}													
 		if (mp->Entry[i].AvgRssi1) {										
 			rssi += mp->Entry[i].AvgRssi1;
+			cnt++;	
 		}													
 		if (mp->Entry[i].AvgRssi2) {										
 			rssi += mp->Entry[i].AvgRssi2;
+			cnt++;	
 		}
+			rssi = rssi / cnt;
 			SHOW_STA_INFO(mp->Entry, i, RT_802_11_MAC_ENTRY_for_5G, rssi, getRate);
 		}
 	}
