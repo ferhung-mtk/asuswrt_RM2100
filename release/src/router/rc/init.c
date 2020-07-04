@@ -3779,12 +3779,12 @@ int init_nvram(void)
 //		nvram_set_int("btn_wltog_gpio",13|GPIO_ACTIVE_LOW);
 //		nvram_set_int("led_usb_gpio", 15|GPIO_ACTIVE_LOW);
 		nvram_set_int("led_lan_gpio", 14|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_wan_gpio", 13|GPIO_ACTIVE_LOW);
+		nvram_set_int("led_wan_gpio", 12|GPIO_ACTIVE_LOW);
 		nvram_set_int("led_pwr_gpio",  8|GPIO_ACTIVE_LOW);
 //		nvram_set_int("led_wps_gpio",  12|GPIO_ACTIVE_LOW);
 //		nvram_set_int("led_5g_gpio", 7|GPIO_ACTIVE_LOW);
 //		nvram_set_int("led_2g_gpio", 4|GPIO_ACTIVE_LOW);
-//		nvram_set_int("led_all_gpio", 10|GPIO_ACTIVE_LOW);
+		nvram_set_int("led_all_gpio", 6|GPIO_ACTIVE_LOW);
 
 		eval("rtkswitch", "11");
 
