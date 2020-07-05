@@ -1290,7 +1290,7 @@ typedef enum _RT_802_11_PHY_MODE {
 	PHY_11G = 4,
 #ifdef DOT11_N_SUPPORT
 	PHY_11ABGN_MIXED = 5,	/* both band   5 */
-	PHY_11N_2_4G = 6,		/* 11n-only with 2.4G band      6 */
+	PHY_11N = 6,		/* 11n-only with 2.4G band      6 */
 	PHY_11GN_MIXED = 7,		/* 2.4G band      7 */
 	PHY_11AN_MIXED = 8,		/* 5G  band       8 */
 	PHY_11BGN_MIXED = 9,	/* if check 802.11b.      9 */
