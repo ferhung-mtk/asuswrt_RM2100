@@ -1746,6 +1746,13 @@ function reset_portconflict_hint(){
 						<input type="radio" value="0" name="reboot_schedule_enable_x" onClick="hide_reboot_option(0);" <% nvram_match_x("LANHostConfig","reboot_schedule_enable", "0", "checked"); %>><#checkbox_No#>
 					</td>
 				</tr>
+				<tr id="led_on_off">
+					<th align="right"><a class="hintstyle" href="javascript:void(0);" onClick="openHint(11,6);"><#Enable_led_on_off#></a></th>
+					<td>
+						<input type="radio" name="led_on_off" class="input" value="1" <% nvram_match_x("","led_on_off","1", "checked"); %> ><#checkbox_Yes#>
+						<input type="radio" name="led_on_off" class="input" value="0" <% nvram_match_x("","led_on_off","0", "checked"); %> ><#checkbox_No#>
+					</td>
+				</tr>
 				<tr id="reboot_schedule_date_tr">
 					<th><#Reboot_Date#></th>
 					<td>

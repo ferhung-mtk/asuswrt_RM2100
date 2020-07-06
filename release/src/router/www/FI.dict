@@ -1670,6 +1670,7 @@ enable_macmode=Ota MAC-suodatin käyttöön
 Enable_NAT=Otetaanko NAT käyttöön
 Enable_redirect_notice=Ota käyttöön WAN alhaalla -selaimen uudelleenohjausilmoitus
 Enable_redirect_notice_desc=This feature allows browser to redirect to failed connection warning page when Internet is down, if disabled warning page would not appear.
+Enable_led_on_off=Ota LED
 Enable_reboot_scheduler=Enable Reboot Scheduler
 Enable_Router_AD=Ota Router Advertisement
 Enable_SSH=Enable SSH

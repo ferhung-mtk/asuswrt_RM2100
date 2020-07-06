@@ -1670,6 +1670,7 @@ enable_macmode=MAC アドレスフィルタリング
 Enable_NAT=NAT を有効にする
 Enable_redirect_notice=WAN 接続障害時通知機能の有効化
 Enable_redirect_notice_desc=インターネットが使用できなくなった場合に警告ページにリダイレクトする機能です。無効にした場合は警告ページは表示されません。
+Enable_led_on_off=LEDの有効化
 Enable_reboot_scheduler=リブートスケジューラーの有効化
 Enable_Router_AD=Router Advertisement を有効にする
 Enable_SSH=SSH を有効にする

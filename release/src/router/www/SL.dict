@@ -1670,6 +1670,7 @@ enable_macmode=Omogoči filter naslovov MAC
 Enable_NAT=Omogoči prevajanje omrežnih naslovov (NAT)
 Enable_redirect_notice=Omogoči obvestilo brskalnika o nedelovanju omrežja WAN
 Enable_redirect_notice_desc=This feature allows browser to redirect to failed connection warning page when Internet is down, if disabled warning page would not appear.
+Enable_led_on_off=Omogoči LED
 Enable_reboot_scheduler=Enable Reboot Scheduler
 Enable_Router_AD=Omogoči oglaševanje usmerjevalnika
 Enable_SSH=Omogoči SSH

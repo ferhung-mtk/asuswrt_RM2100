@@ -1670,6 +1670,7 @@ enable_macmode=启动 MAC 地址过滤
 Enable_NAT=启动 NAT
 Enable_redirect_notice=开启 WAN 中断的浏览器导页通知
 Enable_redirect_notice_desc=这个功能允许浏览器在网络断开后，转到一个断线警告页面；如果关闭，页面将不再出现。
+Enable_led_on_off=开启LED
 Enable_reboot_scheduler=启动定时重启
 Enable_Router_AD=是否启动路由广播
 Enable_SSH=启用 SSH

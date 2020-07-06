@@ -1670,6 +1670,7 @@ enable_macmode=Habilitar Filtro MAC
 Enable_NAT=Ativar NAT
 Enable_redirect_notice=Ativar comunicação de redirecionamento do navegador de WAN
 Enable_redirect_notice_desc=Esse recurso permite que o navegador redirecione a página de aviso de conexão com falha quando a Internet estiver inativa, se a página de aviso desativada não aparecer.
+Enable_led_on_off=Ativar LED
 Enable_reboot_scheduler=Ativar agendador de reinicialização
 Enable_Router_AD=Habilitar Router Advertisement
 Enable_SSH=Ativar SSH

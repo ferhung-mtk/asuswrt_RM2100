@@ -1670,6 +1670,7 @@ enable_macmode=MAC-filter inschakelen
 Enable_NAT=NAT inschakelen
 Enable_redirect_notice=Melding omleiding WAN uit-browser
 Enable_redirect_notice_desc=This feature allows browser to redirect to failed connection warning page when Internet is down, if disabled warning page would not appear.
+Enable_led_on_off=Activering LED
 Enable_reboot_scheduler=Enable Reboot Scheduler
 Enable_Router_AD=Routeradvertering inschakelen
 Enable_SSH=SSH inschakelen

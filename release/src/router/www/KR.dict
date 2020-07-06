@@ -1670,6 +1670,7 @@ enable_macmode=MAC 필터를 사용
 Enable_NAT=NAT 사용
 Enable_redirect_notice=WAN 다운브라우저리디렉션알림활성화
 Enable_redirect_notice_desc=This feature allows browser to redirect to failed connection warning page when Internet is down, if disabled warning page would not appear.
+Enable_led_on_off=LED활성화
 Enable_reboot_scheduler=Enable Reboot Scheduler
 Enable_Router_AD=Router Advertisement 사용
 Enable_SSH=Enable SSH

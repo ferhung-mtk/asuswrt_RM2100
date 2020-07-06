@@ -1670,6 +1670,7 @@ enable_macmode=Aktivera MAC-filter
 Enable_NAT=Aktivera NAT
 Enable_redirect_notice=Aktivera omdirigeringsmeddelande för webbläsare för nedlagd WAN
 Enable_redirect_notice_desc=This feature allows browser to redirect to failed connection warning page when Internet is down, if disabled warning page would not appear.
+Enable_led_on_off=Aktivera LED
 Enable_reboot_scheduler=Enable Reboot Scheduler
 Enable_Router_AD=Aktivera Router Advertisement
 Enable_SSH=Enable SSH
