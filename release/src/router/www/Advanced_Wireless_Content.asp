@@ -269,8 +269,8 @@ function genBWTable(_unit){
 			bwsDesc = ["20/40/80 MHz", "20 MHz", "40 MHz", "80 MHz"];
 		}
 		else{
-			bws = [1, 0, 2, 3, 5];
-			bwsDesc = ["20/40/80 MHz", "20 MHz", "40 MHz", "80 MHz", "20/40/80/160 MHz"];
+			bws = [1, 0, 2, 3];
+			bwsDesc = ["20/40/80 MHz", "20 MHz", "40 MHz", "80 MHz"];
 		}
 
 		if(document.form.wl_nmode_x.value == 8 || (_unit != 0 && document.form.wl_nmode_x.value == 0)){// N/AC mixed or 5G Auto
@@ -1095,7 +1095,6 @@ function change_wl_nmode(o){
 							<option class="content_input_fd" value="0" <% nvram_match("wl_bw", "0","selected"); %>>20 MHz</option>
 							<option class="content_input_fd" value="2" <% nvram_match("wl_bw", "2","selected"); %>>40 MHz</option>
 							<option class="content_input_fd" value="3" <% nvram_match("wl_bw", "3","selected"); %>>80 MHz</option>
-							<option class="content_input_fd" value="5" <% nvram_match("wl_bw", "5","selected"); %>>20/40/80/160 MHz</option>
 						</select>				
 			   	</td>
 			 	</tr>			  
