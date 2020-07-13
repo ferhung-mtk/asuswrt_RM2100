@@ -8,6 +8,12 @@ if [ ! -d "buildroot-gcc463" ];then
 echo "=================EXTRACT-buildroot-gcc463================="
 tar xjf buildroot-gcc463_32bits.tar.bz2
 fi
+if [ -h "/opt/brcm" ];then
+sudo rm -rf /opt/brcm
+fi
+if [ -h "/opt/buildroot-gcc463" ];then
+sudo rm -rf /opt/buildroot-gcc463
+fi
 if [ ! -h "/opt/brcm" ];then
 sudo ln -s ~/asuswrt_RM2100/brcm /opt/brcm
 fi
