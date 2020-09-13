@@ -2181,7 +2181,9 @@ UCHAR APAutoSelectChannel(
 	IN BOOLEAN IsABand)
 {
 	UCHAR ch = 0;
-	ch = SelectBestChannel(pAd, Alg, pwdev); //asuswrt need it.
+
+	if (pAd->phy_op && pAd->phy_op->AutoCh)
+		ch = pAd->phy_op->AutoCh(pAd, pwdev, Alg, IsABand);
 
 	return ch;
 }
