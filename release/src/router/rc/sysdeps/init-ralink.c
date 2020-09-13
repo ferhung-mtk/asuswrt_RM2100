@@ -1011,6 +1011,7 @@ void init_syspara(void)
 	char macaddr[]="00:11:22:33:44:55";
 	char macaddr2[]="00:11:22:33:44:58";
 	char country_code[3];
+	char location_code[3];
 	char pin[9];
 	char productid[13];
 	char fwver[8];
@@ -1042,6 +1043,7 @@ void init_syspara(void)
 	bytes = 6;
 	memset(buffer, 0, sizeof(buffer));
 	memset(country_code, 0, sizeof(country_code));
+	memset(location_code, 0, sizeof(location_code));
 	memset(pin, 0, sizeof(pin));
 	memset(productid, 0, sizeof(productid));
 	memset(fwver, 0, sizeof(fwver));
@@ -1252,7 +1254,17 @@ void init_syspara(void)
 		else
 			nvram_set("reg_spec", reg_spec_def); // DEFAULT
 	}
+#if defined(RTAC85U) 
+	nvram_set("wl_country_code", "");
+	nvram_set("wl0_country_code", "CN"); // DEFAULT
+	nvram_set("wl1_country_code", "CN"); // DEFAULT
+	char *lc = nvram_get("location_code");
+	if (nvram_match("location_code", lc)) {
+		nvram_set("wl0_country_code", lc);
+		nvram_set("wl1_country_code", lc);
+	}
 
+#else  /* !RTAC85U */
 #ifdef RTAC51U	/* FIX EU2CN */
 	if(NEED_eu2cn) {
 		nvram_set("wl0_country_code", "CN");
@@ -1331,6 +1343,7 @@ void init_syspara(void)
 			nvram_set("wl1_country_code", "DB");
 	}
 #endif	/* RTCONFIG_HAS_5G */
+#endif  /* RTAC85U */
 #endif	/* ! RTCONFIG_NEW_REGULATION_DOMAIN */
 #if defined(RTN56U) || defined(RTCONFIG_DSL)
 		if (nvram_match("wl_country_code", "BR"))

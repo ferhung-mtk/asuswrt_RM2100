@@ -329,6 +329,7 @@ int getCountryRegion5G(const char *countryCode, int *warning, int IEEE80211H)
 			(!strcasecmp(countryCode, "DO")) ||
 			(!strcasecmp(countryCode, "DZ")) ||
 			(!strcasecmp(countryCode, "EC")) ||
+			(!strcasecmp(countryCode, "EU")) ||
 			(!strcasecmp(countryCode, "GT")) ||
 			(!strcasecmp(countryCode, "HK")) ||
 			(!strcasecmp(countryCode, "HN")) ||
@@ -389,6 +390,17 @@ int getCountryRegion5G(const char *countryCode, int *warning, int IEEE80211H)
 			return 9;
 		if (nvram_contains_word("rc_support", "loclist") && !strcasecmp(countryCode, "AU"))
 			return 22;
+#elif defined(RTAC85U)
+		if (nvram_contains_word("rc_support", "loclist") && !strcasecmp(countryCode, "AU"))
+			return 9;
+		if (nvram_contains_word("rc_support", "loclist") && !strcasecmp(countryCode, "EU"))
+			return 7;
+		if (nvram_contains_word("rc_support", "loclist") && !strcasecmp(countryCode, "RU"))
+			return 7;
+		if (nvram_contains_word("rc_support", "loclist") && !strcasecmp(countryCode, "SG"))
+			return 7;
+		if (nvram_contains_word("rc_support", "loclist") && !strcasecmp(countryCode, "US"))
+			return 9;
 #else
 		if (nvram_contains_word("rc_support", "loclist") && !strcasecmp(countryCode, "AU"))
 			return 9;

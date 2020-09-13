@@ -178,30 +178,30 @@ var array;
 var clock_type = "";
 var wifi_schedule_value = '<% nvram_get("wl_sched"); %>'.replace(/&#62/g, ">").replace(/&#60/g, "<");
 var wl_unit_value = '<% nvram_get("wl_unit"); %>';
-var country_array = [<% get_support_region_list(); %>][0];
+
+var country_array = [["CN", "<#country_CN#>"], ["SG", "<#country_SG#>"], ["KR", "<#country_KR#>"], ["EU", "<#country_EU#>"], ["RU", "<#country_RU#>"], ["US", "<#country_US#>"], ["AU", "<#country_AU#>"]];
 if(country_array == undefined)
 	country_array = [];
 
-var country_selection_list = [["AA", "<#country_AA#>"], ["CN", "<#country_CN#>"], ["SG", "<#country_SG#>"], ["EU", "<#country_EU#>"], ["KR", "<#country_KR#>"], ["RU", "<#country_RU#>"], ["US", "<#country_US#>"], ["AU", "<#country_AU#>"], ["XX", "<#country_AU#>"]];
 var country_selection_array = new Array();
 var _AU1_support = false;
 var _AU2_support = false;
 
 // for RT-AC58U CX/01
 if(country_array.indexOf("CX") != -1){
-	country_selection_list[7][0] = "CX";
-	country_selection_list[7][1] = "New Zealand";
-	country_selection_list.splice(8,1);
+	country_array[7][0] = "CX";
+	country_array[7][1] = "New Zealand";
+	country_array.splice(8,1);
 }
 // for RT-AC58U SP/01
 if(country_array.indexOf("SP") != -1){
-	country_selection_list[7][0] = "SP";
-	country_selection_list.splice(8,1);
+	country_array[7][0] = "SP";
+	country_array.splice(8,1);
 }
 
 if(country_array.indexOf("NZ") != -1){
-	country_selection_list[7][1] = "New Zealand";
-	country_selection_list.splice(8,1);
+	country_array[7][1] = "New Zealand";
+	country_array.splice(8,1);
 }
 
 if(country_array.indexOf("AU") != -1){
@@ -217,12 +217,12 @@ if(_AU1_support && _AU2_support){
 	country_array.splice(_AU1_index, 1);
 }
 
-for(i=0;i<country_selection_list.length;i++){
-	var index = country_selection_list[i][0];
+for(i=0;i<country_array.length;i++){
+	var index = country_array[i][0];
 	country_selection_array.push(index);
 	country_selection_array[index] = {
 		code: index,
-		name: country_selection_list[i][1]
+		name: country_array[i][1]
 	}
 }
 
@@ -599,7 +599,7 @@ function generate_country_selection(){
 	
 	code += '<select class="input_option" name="location_code">';
 	for(i=0; i<country_array.length; i++){
-		var index = country_array[i];
+		var index = country_array[i][0];
 		if(index == "NZ")
 			index = "AU";
 
@@ -612,7 +612,7 @@ function generate_country_selection(){
 		}
 	}
 
-	if(!matched){
+	if(0){
 		code += '<option value='+ tcode +' >Default</option>';
 	}
 

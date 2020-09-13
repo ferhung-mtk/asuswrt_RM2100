@@ -187,6 +187,8 @@ CH_DESC Country_Region3_ChDesc_5GHZ[] = {
 };
 
 CH_DESC Country_Region4_ChDesc_5GHZ[] = {
+	{36, 4, CHANNEL_DEFAULT_PROP},
+	{52, 4, CHANNEL_DEFAULT_PROP},
 	{149, 5, CHANNEL_DEFAULT_PROP},
 	{}
 };
@@ -216,6 +218,7 @@ CH_DESC Country_Region8_ChDesc_5GHZ[] = {
 
 CH_DESC Country_Region9_ChDesc_5GHZ[] = {
 	{36, 8, CHANNEL_DEFAULT_PROP},
+	{52, 4, CHANNEL_DEFAULT_PROP},
 	{100, 5, CHANNEL_DEFAULT_PROP},
 	{132, 3, CHANNEL_DEFAULT_PROP},
 	{149, 5, CHANNEL_DEFAULT_PROP},
@@ -608,6 +611,8 @@ CH_DESP Country_CL_ChDesp[] = {
 /*China*/
 CH_DESP Country_CN_ChDesp[] = {
 	{ 1,   13, 20, BOTH, FALSE},	/*2402~2482MHz, Ch 1~13,   Max BW: 40 */
+	{ 36,   4, 30, BOTH, FALSE},	/*5170~5250MHz, Ch 36~48, Max BW: 40 */
+	{ 52,   4, 30, BOTH, FALSE}, 	/*5250~5330MHz, Ch 52~64, Max BW: 40 */
 	{ 149,  5, 30, BOTH, FALSE},	/*5735~5835MHz, Ch 149~165, Max BW: 40 */
 	{ 0},			/* end*/
 };
@@ -1152,7 +1157,11 @@ CH_DESP Country_RO_ChDesp[] = {
 /*Russian Federation*/
 CH_DESP Country_RU_ChDesp[] = {
 	{ 1,   13, 20, BOTH, FALSE},	/*2402~2482MHz, Ch 1~13,   Max BW: 40 */
-	{ 149,  5, 30, BOTH, FALSE},	/*5735~5835MHz, Ch 149~165, Max BW: 20 */
+	{ 36,   4, 20, BOTH, FALSE},	/*5170~5250MHz, Ch 36~48, Max BW: 20 */
+	{ 52,   4, 20, BOTH, TRUE}, 	/*5250~5330MHz, Ch 52~64, Max BW: 20 */
+	{ 100, 11, 27, BOTH, TRUE},	/*5490~5710MHz, Ch 100~140, Max BW: 40 */
+	{ 132,  3, 20, BOTH, TRUE}, 	/*5650~5710MHz, Ch 132~140, Max BW: 40 */
+	{ 149,  5, 20, BOTH, FALSE},	/*5735~5835MHz, Ch 149~165, Max BW: 40 */
 	{ 0},			/* end*/
 };
 /*Saint Barth'elemy*/
@@ -1371,7 +1380,9 @@ CH_DESP Country_ZW_ChDesp[] = {
 /*Europe*/
 CH_DESP Country_EU_ChDesp[] = {
 	{ 1,   13, 20, BOTH, FALSE},	/* 2.4 G, ch 1~13 */
-	{ 36,   4, 17, BOTH, FALSE},	/* 5G band 1, ch 36~48*/
+	{ 36,   4, 20, BOTH, FALSE},	/*5170~5250MHz, Ch 36~48, Max BW: 40 */
+	{ 52,   4, 20, BOTH, TRUE}, 	/*5250~5330MHz, Ch 52~64, Max BW: 40 */
+	{ 100, 11, 27, BOTH, TRUE}, 	/*5490~5710MHz, Ch 100~140, Max BW: 40 */
 	{ 0},			/* end*/
 };
 /*North America*/

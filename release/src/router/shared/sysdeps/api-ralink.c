@@ -268,23 +268,19 @@ unsigned char A_BAND_REGION_3_CHANNEL_LIST[]={52, 56, 60, 64, 149, 153, 157, 161
 unsigned char A_BAND_REGION_2_CHANNEL_LIST[]={36, 40, 44, 48};
 unsigned char A_BAND_REGION_3_CHANNEL_LIST[]={149, 153, 157, 161};
 #endif
-unsigned char A_BAND_REGION_4_CHANNEL_LIST[]={149, 153, 157, 161, 165};
+unsigned char A_BAND_REGION_4_CHANNEL_LIST[]={36, 40, 44, 48, 52, 56, 60, 64, 149, 153, 157, 161, 165};
 unsigned char A_BAND_REGION_5_CHANNEL_LIST[]={149, 153, 157, 161};
 #ifdef RTCONFIG_LOCALE2012
 unsigned char A_BAND_REGION_6_CHANNEL_LIST[]={36, 40, 44, 48, 132, 136, 140, 149, 153, 157, 161, 165};
 #else
 unsigned char A_BAND_REGION_6_CHANNEL_LIST[]={36, 40, 44, 48};
 #endif
-#if defined(RTAC85U)
-unsigned char A_BAND_REGION_7_CHANNEL_LIST[]={36, 40, 44, 48, 52, 56, 60, 64, 149, 153, 157, 161, 165}; // Bug in China. Fix me.
-#else
 unsigned char A_BAND_REGION_7_CHANNEL_LIST[]={36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 149, 153, 157, 161, 165, 169, 173};
-#endif
 unsigned char A_BAND_REGION_8_CHANNEL_LIST[]={52, 56, 60, 64};
 #ifdef RTCONFIG_LOCALE2012
 unsigned char A_BAND_REGION_9_CHANNEL_LIST[]={36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132};
 #else
-unsigned char A_BAND_REGION_9_CHANNEL_LIST[]={36, 40, 44, 48};
+unsigned char A_BAND_REGION_9_CHANNEL_LIST[]={36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 132, 136, 140, 149, 153, 157, 161 ,165};
 #endif
 unsigned char A_BAND_REGION_10_CHANNEL_LIST[]={36, 40, 44, 48, 149, 153, 157, 161, 165};
 unsigned char A_BAND_REGION_11_CHANNEL_LIST[]={36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 149, 153, 157, 161};
@@ -348,7 +344,16 @@ typedef struct CountryCodeToCountryRegion {
 
 COUNTRY_CODE_TO_COUNTRY_REGION allCountry[] = {
 	/* {Country Number, ISO Name, Country Name, Support 11A, 11A Country Region, Support 11G, 11G Country Region} */
-	{"DB", A_BAND_REGION_7, G_BAND_REGION_1}, // Bug in China. Fix me.
+#if defined(RTAC85U)
+	{"AU", A_BAND_REGION_9, G_BAND_REGION_1},
+	{"CN", A_BAND_REGION_4, G_BAND_REGION_1},
+	{"EU", A_BAND_REGION_7, G_BAND_REGION_1},
+	{"KR", A_BAND_REGION_5, G_BAND_REGION_1},
+	{"RU", A_BAND_REGION_7, G_BAND_REGION_1},
+	{"SG", A_BAND_REGION_7, G_BAND_REGION_1},
+	{"US", A_BAND_REGION_9, G_BAND_REGION_0},
+#else
+	{"DB", A_BAND_REGION_7, G_BAND_REGION_5},
 	{"AL", A_BAND_REGION_0, G_BAND_REGION_1},
 	{"DZ", A_BAND_REGION_0, G_BAND_REGION_1},
 #ifdef RTCONFIG_LOCALE2012
@@ -530,6 +535,7 @@ COUNTRY_CODE_TO_COUNTRY_REGION allCountry[] = {
 	{"VN", A_BAND_REGION_0, G_BAND_REGION_1},
 	{"YE", A_BAND_REGION_0, G_BAND_REGION_1},
 	{"ZW", A_BAND_REGION_0, G_BAND_REGION_1},
+#endif //RTAC85U
 	{"",	0,	0}
 };
 
